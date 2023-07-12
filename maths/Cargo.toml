@@ -1,0 +1,9 @@
+[package]
+name = "sdt-maths"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+radix-engine = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v0.10.0" }
+
+[lib]
