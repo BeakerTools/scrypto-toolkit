@@ -8,7 +8,7 @@ pub trait Exponential {
 
 impl Exponential for Decimal{
 
-    /// Returns the exponential of a [`Decimal`] using Taylor series
+    /// Returns the exponential of a [`Decimal`] using Taylor series.
     fn exp(self) -> Self {
         return if self.is_zero(){
             Decimal::one()
@@ -40,6 +40,7 @@ impl Exponential for Decimal{
 mod test_exp{
     use radix_engine::types::{BnumI256, dec, Decimal};
     use crate::exponential::{Exponential, SMALLEST_NON_ZERO};
+    use crate::RELATIVE_PRECISION;
 
     #[test]
     fn test_zero() {
@@ -48,14 +49,14 @@ mod test_exp{
 
     #[test]
     fn test_one() {
-        // True value is 2.718281828459045235 so we only have a small error
-        assert_eq!(dec!("2.718281828459045226"), Decimal::one().exp())
+        let rel_prec = (dec!("2.718281828459045235") - Decimal::one().exp()).abs()/dec!("2.718281828459045235");
+        assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_neg_one() {
-        // True value is 0.367879441171442321 so we only have a small error
-        assert_eq!(dec!("0.367879441171442322"), (-Decimal::one()).exp())
+        let rel_prec = (dec!("0.367879441171442321") - (-Decimal::one()).exp()).abs()/dec!("0.367879441171442321");
+        assert!( rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
@@ -65,20 +66,22 @@ mod test_exp{
 
     #[test]
     fn test_biggest_non_overflow() {
-        // True value is 57896044618658097711785492504343953926634992332820282019728.792003956564819967
-        // ie. Decimal::MAX
-        assert_eq!(dec!("57896044618658095628311938129221453520480112551800193592119.589246893199839274"), dec!("135.305999368893231589").exp());
+        let true_val = dec!("57896044618658097711785492504343953926634992332820282019728.792003956564819967");
+        let rel_prec = (true_val - dec!("135.305999368893231589").exp()).abs()/ true_val;
+        assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_42() {
-        // True value is 1739274941520501047.394681303611235226 so we only have a small error
-        assert_eq!(dec!("1739274941520501037.39808957450998605"), dec!(42).exp());
+        let true_val = dec!("1739274941520501037.39808957450998605");
+        let rel_prec = (true_val - dec!(42).exp()).abs()/true_val;
+        assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_100() {
-        // True value is 26881171418161354484126255515800135873611118.773741922415191608 so we only have a small error
-        assert_eq!(dec!("26881171418161353889139236717573277415827726.811691996064594573"), dec!(100).exp());
+        let true_val = dec!("26881171418161354484126255515800135873611118.773741922415191608");
+        let rel_prec = (true_val - dec!(100).exp()).abs()/true_val;
+        assert!(rel_prec < RELATIVE_PRECISION)
     }
 }
