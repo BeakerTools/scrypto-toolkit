@@ -23,4 +23,8 @@ impl EngineInterface {
         address
     }
 
+    pub fn call_function(&mut self, package_address: PackageAddress, ) {
+        self.test_runner.call_function()
+    }
+
 }

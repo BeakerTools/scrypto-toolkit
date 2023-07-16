@@ -2,7 +2,7 @@ use std::path::Path;
 use radix_engine::types::{ComponentAddress, HashMap, PackageAddress};
 use crate::blueprint::Blueprint;
 use crate::engine_interface::EngineInterface;
-use crate::environment_encoder::EnvironmentEncode;
+use crate::environment::EnvironmentEncode;
 use crate::formatted_strings::ToFormatted;
 
 pub struct TestEngine {
@@ -57,14 +57,14 @@ impl TestEngine{
         };
     }
 
-    pub fn new_component<F: ToFormatted, B: Blueprint>(&mut self, component_name: F, blueprint: B, args: Vec<Box<dyn EnvironmentEncode>>) {
+    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) {
         match self.components.get(&component_name.format())
         {
             Some(_) => panic!("A component with name {} already exists", component_name.format()),
             None => {
                 let package_address = self.current_package().clone();
                 let current_account = self.current_account().clone();
-
+                
             }
         }
     }
