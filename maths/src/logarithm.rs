@@ -23,26 +23,35 @@ impl Logarithm for Decimal {
     fn ln(self) -> Self {
         assert!(self.is_positive(), "Logarithm is only defined for positive numbers");
 
-        // Because, exp overflows very quickly, we rewrite y = 2^n(1 + x) with 0<a<=1
-        // Therefore, ln(y) = ln(1+x) + n*ln(2)
-        let self_256 = BnumU256::try_from(self.0).unwrap();
-
-        let pow_two = self_256.next_power_of_two()/NEXT_POWER_OF_TWO_FOR_ONE;
-        let n = pow_two.0.ilog2() as u32;
-
-        let initial_value = self / Decimal::try_from(pow_two).unwrap();
-
-        let mut result = initial_value;
-        let mut last = result + Decimal::ONE;
-
-        // Keep going while last and result are not equal ie. their difference is > 10^-18
-        while last != result {
-            last = result;
-            let exp_last = last.exp();
-            result = last + (initial_value - exp_last)/(initial_value + exp_last)*2;
+        // If x < 1 we compute -ln(1/x) instead
+        if self < Decimal::one()
+        {
+            -(Decimal::ONE / self).ln()
         }
+        else {
 
-        result + Decimal::from(n)*LN_2
+            // Because, exp overflows very quickly, we rewrite y = 2^n(1 + x) with 0=< x <1.
+            // This is possible because we make sure that y >= 1
+            // Therefore, ln(y) = ln(1+x) + n*ln(2)
+            let self_256 = BnumU256::try_from(self.0).unwrap();
+
+            let pow_two = self_256.next_power_of_two()/NEXT_POWER_OF_TWO_FOR_ONE;
+            let n = if pow_two == BnumU256::ONE { 0 } else { pow_two.0.ilog2() as u32 };
+
+            let initial_value = self / Decimal::try_from(pow_two).unwrap();
+
+            let mut result = initial_value;
+            let mut last = result + Decimal::ONE;
+
+            // Keep going while last and result are not equal ie. their difference is > 10^-18
+            while last != result {
+                last = result;
+                let exp_last = last.exp();
+                result = last + (initial_value - exp_last)/(initial_value + exp_last)*2;
+            }
+
+            result + Decimal::from(n)*LN_2
+        }
     }
 
     /// Returns the binary logarithm of a [`Decimal`].
@@ -63,8 +72,8 @@ impl Logarithm for Decimal {
 
 #[cfg(test)]
 mod test_ln{
-    use radix_engine::types::{dec, Decimal};
-    use crate::logarithm::{Logarithm};
+    use radix_engine::types::{BnumI256, dec, Decimal};
+    use crate::logarithm::{LN_2, Logarithm};
     use crate::{RELATIVE_PRECISION};
     use crate::exponential::Exponential;
 
@@ -85,8 +94,22 @@ mod test_ln{
     #[test]
     fn test_ln_1()
     {
-        println!("{}", Decimal::ONE.ln());
         assert!(Decimal::ONE.ln().abs() <= RELATIVE_PRECISION)
+    }
+
+    #[test]
+    fn test_ln_0_5()
+    {
+        let rel_prec = (dec!("0.5").ln() + LN_2).abs()/LN_2;
+        assert!(rel_prec < RELATIVE_PRECISION)
+    }
+
+    #[test]
+    fn test_ln_smallest_dec()
+    {
+        let small = Decimal(BnumI256::ONE);
+        let rel_prec = (small.ln() + dec!("41.446531673892822312")).abs()/dec!("41.446531673892822312");
+        assert!(rel_prec < RELATIVE_PRECISION)
     }
 
     #[test]
