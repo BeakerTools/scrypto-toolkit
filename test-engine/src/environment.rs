@@ -1,12 +1,15 @@
 use crate::test_engine::TestEngine;
 use radix_engine::types::{
-    ComponentAddress, Decimal, Hash, NonFungibleGlobalId, NonFungibleLocalId, PackageAddress,
+    ComponentAddress, Decimal, Hash, ManifestValueKind, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+    NonFungibleGlobalId, NonFungibleLocalId, PackageAddress,
     PreciseDecimal, ResourceAddress,
 };
 use radix_engine::types::{Encoder, ManifestEncoder};
+use radix_engine_interface::count;
 use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
-use transaction::prelude::manifest_args;
+use crate::formatted_strings::ToFormatted;
+use crate::manifest_args;
 
 pub trait EnvironmentEncode {
     fn encode(
@@ -18,7 +21,7 @@ pub trait EnvironmentEncode {
     );
 }
 
-pub enum Environment<F: Formattable + Clone> {
+pub enum Environment<F: ToFormatted + Clone> {
     Account(F),
     Component(F),
     Package(F),
@@ -28,7 +31,7 @@ pub enum Environment<F: Formattable + Clone> {
     NonFungibleProof(F, Vec<NonFungibleLocalId>),
 }
 
-impl<F: Formattable + Clone> EnvironmentEncode for Environment<F> {
+impl<F: ToFormatted + Clone> EnvironmentEncode for Environment<F> {
     fn encode(&self, test_engine: &TestEngine, manifest_builder: &mut ManifestBuilder, encoder: &mut ManifestEncoder, caller: ComponentAddress) {
         match self {
             Environment::Account(name) => {
@@ -44,7 +47,7 @@ impl<F: Formattable + Clone> EnvironmentEncode for Environment<F> {
                 encoder.encode(&package_address).unwrap();
             }
             Environment::FungibleBucket(resource_name, amount) => {
-                let resource_address = test_engine.get_fungible(resource_name.clone());
+                let resource_address = test_engine.get_resource(resource_name.clone());
                 manifest_builder.call_method(
                     caller,
                     "withdraw",
@@ -55,24 +58,24 @@ impl<F: Formattable + Clone> EnvironmentEncode for Environment<F> {
                         resource_address,
                         amount: amount.clone(),
                     });
-                encoder.encode(&(bucket.unwrap())).unwrap();
+                encoder.encode(&(bucket.new_bucket.unwrap())).unwrap();
             }
             Environment::NonFungibleBucket(resource_name, ids) => {
-                let resource_address = test_engine.get_fungible(resource_name.clone());
+                let resource_address = test_engine.get_resource(resource_name.clone());
                 manifest_builder.call_method(
                     caller,
                     "withdraw_by_ids",
-                    manifest_args!(resource_address.clone(), set_ids.clone()),
+                    manifest_args!(resource_address.clone(), ids.clone()),
                 );
                 let (_, bucket) =
                     manifest_builder.add_instruction_advanced(InstructionV1::TakeNonFungiblesFromWorktop {
                         resource_address,
                         ids: ids.clone(),
                     });
-                encoder.encode(&(bucket.unwrap())).unwrap();
+                encoder.encode(&(bucket.new_bucket.unwrap())).unwrap();
             }
             Environment::FungibleProof(resource_name, amount) => {
-                let resource_address = test_engine.get_fungible(resource_name.clone());
+                let resource_address = test_engine.get_resource(resource_name.clone());
                 manifest_builder.call_method(
                     caller,
                     "create_proof_by_amount",
@@ -84,21 +87,21 @@ impl<F: Formattable + Clone> EnvironmentEncode for Environment<F> {
                         resource_address,
                     },
                 );
-                encoder.encode(&(proof.unwrap())).unwrap();
+                encoder.encode(&(proof.new_proof.unwrap())).unwrap();
             }
             Environment::NonFungibleProof(resource_name, ids) => {
-                let resource_address = test_engine.get_fungible(resource_name.clone());
+                let resource_address = test_engine.get_resource(resource_name.clone());
                 manifest_builder.call_method(
                     caller,
                     "create_proof_by_ids",
-                    manifest_args!(resource_address.clone(), set_ids.clone()),
+                    manifest_args!(resource_address.clone(), ids.clone()),
                 );
                 let (_, proof) =
                     manifest_builder.add_instruction_advanced(InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
                         resource_address,
                         ids: ids.clone(),
                     });
-                encoder.encode(&(proof.unwrap())).unwrap();
+                encoder.encode(&(proof.new_proof.unwrap())).unwrap();
             }
         }
     }

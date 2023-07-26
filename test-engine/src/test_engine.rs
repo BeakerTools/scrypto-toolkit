@@ -1,6 +1,6 @@
 use std::path::Path;
-use radix_engine::types::{ComponentAddress, HashMap, PackageAddress};
-use crate::blueprint::Blueprint;
+use radix_engine::types::{ComponentAddress, HashMap, PackageAddress, ResourceAddress};
+use crate::calls::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
 use crate::formatted_strings::ToFormatted;
@@ -12,8 +12,8 @@ pub struct TestEngine {
     packages: HashMap<String, PackageAddress>,
     current_package: Option<String>,
     components: HashMap<String, ComponentAddress>,
-    current_component: Option<String>
-
+    current_component: Option<String>,
+    resources: HashMap<String, ResourceAddress>
 }
 
 impl TestEngine{
@@ -31,7 +31,8 @@ impl TestEngine{
             packages: HashMap::new(),
             current_package: None,
             components: HashMap::new(),
-            current_component: None
+            current_component: None,
+            resources: HashMap::new()
         }
     }
 
@@ -57,14 +58,13 @@ impl TestEngine{
         };
     }
 
-    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) {
+    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder{
         match self.components.get(&component_name.format())
         {
             Some(_) => panic!("A component with name {} already exists", component_name.format()),
             None => {
-                let package_address = self.current_package().clone();
-                let current_account = self.current_account().clone();
-                
+                CallBuilder::from(&mut self, self.current_account().clone())
+                    .call_function(self.current_package().clone(), blueprint_name, instantiation_function, args)
             }
         }
     }
@@ -76,9 +76,23 @@ impl TestEngine{
         }
     }
 
+    pub fn get_component<F: ToFormatted>(&self, name: F) -> ComponentAddress {
+        match self.components.get(&name.format()){
+            None => panic!("There is no component with name {}", name.format()),
+            Some(address) => address.clone()
+        }
+    }
+
     pub fn get_account<F: ToFormatted>(&self, name: F) -> ComponentAddress {
         match self.accounts.get(&name.format()){
             None => panic!("There is no account with name {}", name.format()),
+            Some(address) => address.clone()
+        }
+    }
+
+    pub fn get_resource<F: ToFormatted>(&self, name: F) -> ResourceAddress {
+        match self.resources.get(&name.format()) {
+            None => panic!("There is no resource with name {}", name.format()),
             Some(address) => address.clone()
         }
     }
