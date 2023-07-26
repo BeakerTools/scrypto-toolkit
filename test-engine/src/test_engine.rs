@@ -1,6 +1,6 @@
 use std::path::Path;
 use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
-use radix_engine::types::{ComponentAddress, GlobalAddress, HashMap, PackageAddress, ResourceAddress};
+use radix_engine::types::{ComponentAddress, Decimal, GlobalAddress, HashMap, PackageAddress, ResourceAddress};
 use radix_engine_interface::prelude::MetadataValue;
 use transaction::model::TransactionManifestV1;
 use crate::calls::CallBuilder;
@@ -94,9 +94,25 @@ impl TestEngine{
     pub fn call_method(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt {
         let caller = self.current_account().clone();
         let component = self.current_component().clone();
-        CallBuilder::from(self, caller)
+        let receipt = CallBuilder::from(self, caller)
             .call_method(component, method_name, args)
-            .run()
+            .run();
+        if let TransactionResult::Commit(commit) = &receipt.transaction_result {
+            self.update_resources_from_result(commit);
+        }
+        receipt
+    }
+
+    pub fn current_balance<F: ToFormatted>(&mut self, resource: F) -> Decimal {
+        let account = self.current_account().clone();
+        let resource = self.get_resource(resource);
+        self.engine_interface.balance(account, resource)
+    }
+
+    pub fn balance_of<F: ToFormatted, G: ToFormatted>(&mut self, account: F, resource: F) -> Decimal {
+        let account = self.get_account(account);
+        let resource = self.get_resource(resource);
+        self.engine_interface.balance(account, resource)
     }
 
     pub(crate) fn execute_call(

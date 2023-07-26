@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
-use radix_engine::types::{ComponentAddress, GlobalAddress, PackageAddress};
-use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
+use radix_engine::types::{ComponentAddress, Decimal, GlobalAddress, PackageAddress, ResourceAddress};
+use radix_engine_interface::prelude::{MetadataValue};
 use scrypto_unit::TestRunner;
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::{TestTransaction};
@@ -45,5 +45,14 @@ impl EngineInterface {
 
     pub fn get_metadata(&mut self, address: GlobalAddress, key: &str) -> Option<MetadataValue> {
         self.test_runner.get_metadata(address, key)
+    }
+
+    pub fn balance(&mut self, account: ComponentAddress, resource: ResourceAddress) -> Decimal {
+        match self.test_runner.account_balance(account, resource) {
+            None => { Decimal::zero() }
+            Some(amount) => {
+                amount
+            }
+        }
     }
 }

@@ -5,3 +5,4 @@ mod environment;
 mod private_macros;
 mod macros;
 pub mod calls;
+pub mod outcomes;

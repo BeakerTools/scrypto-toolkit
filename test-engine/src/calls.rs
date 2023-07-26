@@ -86,7 +86,7 @@ impl<'a> CallBuilder<'a> {
 
         let transaction = manifest
             .call_method(component, method_name, manifest_arg)
-            .deposit_batch(self.caller)
+            .try_deposit_batch_or_abort(self.caller)
             .build();
         self.manifest = Some(transaction);
         self
@@ -122,6 +122,7 @@ impl<'a> CallBuilder<'a> {
 
         let transaction = manifest
             .call_function(package_address, blueprint_name, function_name, manifest_arg)
+            .try_deposit_batch_or_abort(self.caller)
             .build();
         self.manifest = Some(transaction);
         self
