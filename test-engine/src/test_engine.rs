@@ -1,5 +1,8 @@
 use std::path::Path;
-use radix_engine::types::{ComponentAddress, HashMap, PackageAddress, ResourceAddress};
+use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
+use radix_engine::types::{ComponentAddress, GlobalAddress, HashMap, PackageAddress, ResourceAddress};
+use radix_engine_interface::prelude::MetadataValue;
+use transaction::model::TransactionManifestV1;
 use crate::calls::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
@@ -63,10 +66,25 @@ impl TestEngine{
         {
             Some(_) => panic!("A component with name {} already exists", component_name.format()),
             None => {
-                CallBuilder::from(&mut self, self.current_account().clone())
-                    .call_function(self.current_package().clone(), blueprint_name, instantiation_function, args)
+                let caller = self.current_account().clone();
+                let package = self.current_package().clone();
+                CallBuilder::from(self, caller)
+                    .call_function( package, blueprint_name, instantiation_function, args)
             }
         }
+    }
+
+    pub(crate) fn execute_call(
+        &mut self,
+        manifest: TransactionManifestV1,
+        with_trace: bool,
+    ) -> TransactionReceipt {
+
+        let receipt = self.engine_interface.execute_manifest(manifest, with_trace);
+        if let TransactionResult::Commit(commit_result) = &receipt.transaction_result {
+            self.update_resources_from_result(commit_result);
+        }
+        receipt
     }
 
     pub fn get_package<F: ToFormatted>(&self, name: F) -> PackageAddress {
@@ -105,5 +123,34 @@ impl TestEngine{
 
     pub fn current_account(&self) -> &ComponentAddress {
         self.accounts.get(&self.current_account).unwrap()
+    }
+
+    fn update_resources_from_result(&mut self, result: &CommitResult) {
+        // Update tracked resources
+        for resource in result.new_resource_addresses() {
+            match self
+                .engine_interface
+                .get_metadata(GlobalAddress::from(resource.clone()), "name")
+            {
+                None => {}
+                Some(entry) => match entry {
+                    MetadataValue::String(name) => {
+                        self.resources.insert(name.format(), resource.clone());
+                    }
+                    _ => {}
+                },
+            }
+
+            match self.engine_interface.get_metadata(GlobalAddress::from(resource.clone()), "symbol")
+            {
+                None => {}
+                Some(entry) => match entry {
+                    MetadataValue::String(name) => {
+                        self.resources.insert(name.format(), resource.clone());
+                    }
+                    _ => {}
+                },
+            }
+        }
     }
 }

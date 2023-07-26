@@ -1,5 +1,5 @@
 use radix_engine::transaction::{TransactionReceipt};
-use radix_engine::types::{dec, manifest_decode, ComponentAddress, Decimal, Encoder, ManifestEncoder, ManifestValueKind, PackageAddress, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestExpression};
+use radix_engine::types::{dec, manifest_decode, ComponentAddress, Decimal, Encoder, ManifestEncoder, ManifestValueKind, PackageAddress, ManifestArgs, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestExpression, ManifestValue};
 use radix_engine_interface::constants::FAUCET_COMPONENT;
 use radix_engine_interface::count;
 use transaction::builder::ManifestBuilder;
@@ -64,11 +64,8 @@ impl<'a> CallBuilder<'a> {
 
     pub fn run(mut self) -> TransactionReceipt {
         self.build();
-        let receipt = self
-            .test_engine
-            .execute_call(self.manifest.clone().unwrap(), self.with_trace.clone());
-        let (fee_paid, outcome) = get_outcome_and_fees(&receipt);
-        MethodCallReceipt::from(fee_paid, outcome, receipt)
+        self.test_engine
+            .execute_call(self.manifest.clone().unwrap(), self.with_trace.clone())
     }
 
     pub fn with_trace(mut self, trace: bool) -> Self {
@@ -87,7 +84,7 @@ impl<'a> CallBuilder<'a> {
             transaction::model::InstructionV1::CallMethod {
                 address: DynamicGlobalAddress::from(self.fee_payer),
                 method_name: "lock_fee".to_string(),
-                args: manifest_args!(self.fee_locked),
+                args: ManifestValue::from(manifest_args!(self.fee_locked)),
             },
         );
     }
@@ -97,7 +94,7 @@ impl<'a> CallBuilder<'a> {
             transaction::model::InstructionV1::CallMethod {
                 address: DynamicGlobalAddress::from(self.caller.clone()),
                 method_name: "deposit_batch".to_string(),
-                args: manifest_args!(ManifestExpression::EntireWorktop)
+                args: ManifestValue::from(manifest_args!(ManifestExpression::EntireWorktop))
             }
         );
     }
@@ -119,15 +116,16 @@ impl<'a> CallBuilder<'a> {
         encoder.write_value_kind(ManifestValueKind::Tuple).unwrap();
         encoder.write_size(args.len()).unwrap();
         for arg in args {
-            arg.encode(
+            manifest = arg.encode(
                 &mut self.test_engine,
-                &mut manifest,
+                manifest,
                 &mut encoder,
                 self.caller.clone(),
             );
         }
 
-        let manifest_arg = manifest_decode(&buf).unwrap();
+        let value = manifest_decode(&buf).unwrap();
+        let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
 
         let transaction = manifest
             .call_method(component, method_name, manifest_arg)
@@ -153,15 +151,16 @@ impl<'a> CallBuilder<'a> {
         encoder.write_value_kind(ManifestValueKind::Tuple).unwrap();
         encoder.write_size(args.len()).unwrap();
         for arg in args {
-            arg.encode(
+            manifest = arg.encode(
                 &mut self.test_engine,
-                &mut manifest,
+                manifest,
                 &mut encoder,
                 self.caller.clone(),
             );
         }
 
-        let manifest_arg = manifest_decode(&buf).unwrap();
+        let value = manifest_decode(&buf).unwrap();
+        let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
 
         let transaction = manifest
             .call_function(package_address, blueprint_name, function_name, manifest_arg)

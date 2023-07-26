@@ -1,6 +1,6 @@
 use crate::test_engine::TestEngine;
 use radix_engine::types::{
-    ComponentAddress, Decimal, Hash, ManifestValueKind, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+    ComponentAddress, Decimal, Hash, ManifestArgs, ManifestValueKind, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
     NonFungibleGlobalId, NonFungibleLocalId, PackageAddress,
     PreciseDecimal, ResourceAddress,
 };
@@ -15,10 +15,10 @@ pub trait EnvironmentEncode {
     fn encode(
         &self,
         test_engine: &TestEngine,
-        manifest_builder: &mut ManifestBuilder,
+        manifest_builder: ManifestBuilder,
         encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
-    );
+    ) -> ManifestBuilder;
 }
 
 pub enum Environment<F: ToFormatted + Clone> {
@@ -32,76 +32,83 @@ pub enum Environment<F: ToFormatted + Clone> {
 }
 
 impl<F: ToFormatted + Clone> EnvironmentEncode for Environment<F> {
-    fn encode(&self, test_engine: &TestEngine, manifest_builder: &mut ManifestBuilder, encoder: &mut ManifestEncoder, caller: ComponentAddress) {
+    fn encode(&self, test_engine: &TestEngine, manifest_builder: ManifestBuilder, encoder: &mut ManifestEncoder, caller: ComponentAddress) -> ManifestBuilder{
         match self {
             Environment::Account(name) => {
                 let account_address = test_engine.get_account(name.clone());
                 encoder.encode(&account_address).unwrap();
+                manifest_builder
             }
             Environment::Component(name) => {
                 let component_address = test_engine.get_component(name.clone());
                 encoder.encode(&component_address).unwrap();
+                manifest_builder
             }
             Environment::Package(name) => {
                 let package_address = test_engine.get_package(name.clone());
                 encoder.encode(&package_address).unwrap();
+                manifest_builder
             }
             Environment::FungibleBucket(resource_name, amount) => {
                 let resource_address = test_engine.get_resource(resource_name.clone());
-                manifest_builder.call_method(
+                let manifest_builder = manifest_builder.call_method(
                     caller,
                     "withdraw",
                     manifest_args!(resource_address.clone(), amount),
                 );
-                let (_, bucket) =
+                let (manifest_builder, bucket) =
                     manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
                         resource_address,
                         amount: amount.clone(),
                     });
                 encoder.encode(&(bucket.new_bucket.unwrap())).unwrap();
+                manifest_builder
             }
             Environment::NonFungibleBucket(resource_name, ids) => {
                 let resource_address = test_engine.get_resource(resource_name.clone());
-                manifest_builder.call_method(
+                let manifest_builder = manifest_builder.call_method(
                     caller,
                     "withdraw_by_ids",
                     manifest_args!(resource_address.clone(), ids.clone()),
                 );
-                let (_, bucket) =
+                let (manifest_builder, bucket) =
                     manifest_builder.add_instruction_advanced(InstructionV1::TakeNonFungiblesFromWorktop {
                         resource_address,
                         ids: ids.clone(),
                     });
                 encoder.encode(&(bucket.new_bucket.unwrap())).unwrap();
+                manifest_builder
             }
             Environment::FungibleProof(resource_name, amount) => {
                 let resource_address = test_engine.get_resource(resource_name.clone());
-                manifest_builder.call_method(
+                let manifest_builder = manifest_builder.call_method(
                     caller,
                     "create_proof_by_amount",
                     manifest_args!(resource_address.clone(), amount),
                 );
-                let (_, proof) = manifest_builder.add_instruction_advanced(
+                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
                     InstructionV1::CreateProofFromAuthZoneOfAmount {
                         amount: amount.clone(),
                         resource_address,
                     },
                 );
                 encoder.encode(&(proof.new_proof.unwrap())).unwrap();
+                manifest_builder
             }
             Environment::NonFungibleProof(resource_name, ids) => {
                 let resource_address = test_engine.get_resource(resource_name.clone());
-                manifest_builder.call_method(
+                let manifest_builder = manifest_builder.call_method(
                     caller,
                     "create_proof_by_ids",
                     manifest_args!(resource_address.clone(), ids.clone()),
                 );
-                let (_, proof) =
+                let (manifest_builder, proof) =
                     manifest_builder.add_instruction_advanced(InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
                         resource_address,
                         ids: ids.clone(),
                     });
                 encoder.encode(&(proof.new_proof.unwrap())).unwrap();
+                manifest_builder
             }
         }
     }
@@ -113,11 +120,12 @@ macro_rules! env_encode_impl {
             fn encode(
                 &self,
                 _test_engine: &TestEngine,
-                _manifest_builder: &mut ManifestBuilder,
+                manifest_builder: ManifestBuilder,
                 encoder: &mut ManifestEncoder,
                 _caller: ComponentAddress,
-            ) {
+            ) -> ManifestBuilder {
                 encoder.encode(&self).unwrap();
+                manifest_builder
             }
         }
     };

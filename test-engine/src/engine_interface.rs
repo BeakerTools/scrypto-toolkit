@@ -1,6 +1,11 @@
+use std::collections::BTreeSet;
 use std::path::Path;
-use radix_engine::types::{ComponentAddress, PackageAddress};
+use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
+use radix_engine::types::{ComponentAddress, GlobalAddress, PackageAddress};
+use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use scrypto_unit::TestRunner;
+use transaction::model::TransactionManifestV1;
+use transaction::prelude::{manifest_args, TestTransaction};
 
 pub struct EngineInterface {
     test_runner: TestRunner
@@ -23,5 +28,22 @@ impl EngineInterface {
         address
     }
 
+    pub fn execute_manifest(&mut self, manifest: TransactionManifestV1, with_trace: bool) -> TransactionReceipt {
+        let nonce = self.test_runner.next_transaction_nonce();
+        let exec_config = ExecutionConfig::for_test_transaction().with_kernel_trace(with_trace);
+        let initial_proofs = BTreeSet::new();
 
+        self.test_runner.execute_transaction(
+            TestTransaction::new_from_nonce(manifest, nonce)
+                .prepare()
+                .expect("expected transaction to be preparable")
+                .get_executable(initial_proofs),
+            FeeReserveConfig::default(),
+            exec_config,
+        )
+    }
+
+    pub fn get_metadata(&mut self, address: GlobalAddress, key: &str) -> Option<MetadataValue> {
+        self.test_runner.get_metadata(address, key)
+    }
 }
