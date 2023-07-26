@@ -61,17 +61,42 @@ impl TestEngine{
         };
     }
 
-    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder{
+    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt{
         match self.components.get(&component_name.format())
         {
             Some(_) => panic!("A component with name {} already exists", component_name.format()),
             None => {
                 let caller = self.current_account().clone();
                 let package = self.current_package().clone();
-                CallBuilder::from(self, caller)
+                let receipt = CallBuilder::from(self, caller)
                     .call_function( package, blueprint_name, instantiation_function, args)
+                    .run();
+
+                if let TransactionResult::Commit(commit) = &receipt.transaction_result {
+                    let component: ComponentAddress = commit.new_component_addresses().get(0).unwrap().clone();
+                    self.components.insert(component_name.format(), component);
+
+                    if self.current_component.is_none() {
+                        self.current_component = Some(component_name.format())
+                    };
+
+                    self.update_resources_from_result(&commit);
+                }
+                else if let TransactionResult::Reject(reject) = &receipt.transaction_result {
+                    panic!("{}", reject.error);
+                }
+
+                receipt
             }
         }
+    }
+
+    pub fn call_method(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt {
+        let caller = self.current_account().clone();
+        let component = self.current_component().clone();
+        CallBuilder::from(self, caller)
+            .call_method(component, method_name, args)
+            .run()
     }
 
     pub(crate) fn execute_call(
@@ -123,6 +148,12 @@ impl TestEngine{
 
     pub fn current_account(&self) -> &ComponentAddress {
         self.accounts.get(&self.current_account).unwrap()
+    }
+
+    pub fn current_component(&self) -> &ComponentAddress {
+        self.components
+            .get(self.current_component.as_ref().unwrap())
+            .unwrap()
     }
 
     fn update_resources_from_result(&mut self, result: &CommitResult) {

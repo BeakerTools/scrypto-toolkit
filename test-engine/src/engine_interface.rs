@@ -5,7 +5,7 @@ use radix_engine::types::{ComponentAddress, GlobalAddress, PackageAddress};
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use scrypto_unit::TestRunner;
 use transaction::model::TransactionManifestV1;
-use transaction::prelude::{manifest_args, TestTransaction};
+use transaction::prelude::{TestTransaction};
 
 pub struct EngineInterface {
     test_runner: TestRunner
