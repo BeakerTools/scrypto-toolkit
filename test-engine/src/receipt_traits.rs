@@ -12,7 +12,7 @@ impl Outcome for TransactionReceipt {
     fn assert_is_success(&self) {
         match &self.transaction_result {
             TransactionResult::Commit(commit) => match &commit.outcome {
-                TransactionOutcome::Success(output) => {},
+                TransactionOutcome::Success(_) => {},
                 TransactionOutcome::Failure(failure) => {
                     panic!("Transaction failed with: {}", failure);
                 }

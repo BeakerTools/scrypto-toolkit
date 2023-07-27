@@ -36,11 +36,6 @@ impl<'a> CallBuilder<'a> {
         )
     }
 
-    pub fn with_trace(mut self, trace: bool) -> Self {
-        self.with_trace = trace;
-        self
-    }
-
     pub(crate) fn call_method(
         mut self,
         component: ComponentAddress,
