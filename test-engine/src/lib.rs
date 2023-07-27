@@ -5,5 +5,6 @@ pub mod environment;
 mod private_macros;
 mod macros;
 pub mod calls;
-pub mod outcomes;
+pub mod receipt_traits;
 mod account;
+mod from_instruction;

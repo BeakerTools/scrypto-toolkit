@@ -13,7 +13,7 @@ pub struct Account {
 impl Account {
 
     pub fn new(engine_interface: &mut EngineInterface) -> Self {
-        let (public_key, private_key, component_address) = engine_interface.new_account();
+        let (public_key, _, component_address) = engine_interface.new_account();
         Self{
             public_key,
             component_address
