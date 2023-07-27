@@ -40,7 +40,7 @@ impl<'a> CallBuilder<'a> {
         mut self,
         component: ComponentAddress,
         method_name: &str,
-        args: Vec<impl EnvironmentEncode>,
+        args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
 
         let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
@@ -77,7 +77,7 @@ impl<'a> CallBuilder<'a> {
         package_address: PackageAddress,
         blueprint_name: &str,
         function_name: &str,
-        args: Vec<impl EnvironmentEncode>,
+        args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
         let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
 

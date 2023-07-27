@@ -5,6 +5,7 @@ use radix_engine::types::{
     PreciseDecimal, ResourceAddress,
 };
 use radix_engine::types::{Encoder, ManifestEncoder};
+use radix_engine_interface::blueprints::resource::OwnerRole;
 use radix_engine_interface::count;
 use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
@@ -29,6 +30,7 @@ pub enum Environment<F: ToFormatted + Clone> {
     NonFungibleBucket(F, Vec<NonFungibleLocalId>),
     FungibleProof(F, Decimal),
     NonFungibleProof(F, Vec<NonFungibleLocalId>),
+    Resource(F)
 }
 
 impl<F: ToFormatted + Clone> EnvironmentEncode for Environment<F> {
@@ -110,6 +112,11 @@ impl<F: ToFormatted + Clone> EnvironmentEncode for Environment<F> {
                 encoder.encode(&(proof.new_proof.unwrap())).unwrap();
                 manifest_builder
             }
+            Environment::Resource(resource_name) => {
+                let resource_address = test_engine.get_resource(resource_name.clone());
+                encoder.encode(&resource_address).unwrap();
+                manifest_builder
+            }
         }
     }
 }
@@ -150,3 +157,4 @@ env_encode_impl!(NonFungibleLocalId);
 env_encode_impl!(Hash);
 env_encode_impl!(Decimal);
 env_encode_impl!(PreciseDecimal);
+env_encode_impl!(OwnerRole);

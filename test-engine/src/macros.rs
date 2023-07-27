@@ -1,14 +1,14 @@
 #[macro_export]
 macro_rules! env_args {
-    () => {{
-        let ret: Vec<Decimal> = Vec::new();
-        ret
-    }};
+    () => (
+        vec![]
+    );
 
      ($( $x:expr ),*) => {{
-        let mut temp_vec = vec![];
+         use sdt_test_engine::environment::EnvironmentEncode;
+         let mut temp_vec: Vec<Box<dyn EnvironmentEncode>> = vec![];
             $(
-                temp_vec.push($x);
+                temp_vec.push(Box::new($x));
             )*
         temp_vec
     }};

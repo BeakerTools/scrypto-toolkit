@@ -52,4 +52,8 @@ impl EngineInterface {
             }
         }
     }
+
+    pub fn new_fungible(&mut self, account: ComponentAddress, initial_amount: Decimal) -> ResourceAddress{
+        self.test_runner.create_fungible_resource(initial_amount, 18, account)
+    }
 }

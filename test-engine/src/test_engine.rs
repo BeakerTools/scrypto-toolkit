@@ -8,6 +8,7 @@ use crate::calls::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
 use crate::formatted_strings::ToFormatted;
+use crate::receipt_traits::Outcome;
 
 pub struct TestEngine {
     engine_interface: EngineInterface,
@@ -67,7 +68,7 @@ impl TestEngine{
         };
     }
 
-    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<impl EnvironmentEncode>) -> TransactionReceipt{
+    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt{
         match self.components.get(&component_name.format())
         {
             Some(_) => panic!("A component with name {} already exists", component_name.format()),
@@ -77,6 +78,7 @@ impl TestEngine{
                 let receipt = CallBuilder::from(self, caller)
                     .call_function( package, blueprint_name, instantiation_function, args)
                     .run();
+                receipt.assert_is_success();
 
                 if let TransactionResult::Commit(commit) = &receipt.transaction_result {
                     let component: ComponentAddress = commit.new_component_addresses().get(0).unwrap().clone();
@@ -97,7 +99,7 @@ impl TestEngine{
         }
     }
 
-    pub fn call_method(&mut self, method_name: &str, args: Vec<impl EnvironmentEncode>) -> TransactionReceipt {
+    pub fn call_method(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt {
         let caller = self.current_account().clone();
         let component = self.current_component().clone();
         let receipt = CallBuilder::from(self, caller)
@@ -107,6 +109,21 @@ impl TestEngine{
             self.update_resources_from_result(commit);
         }
         receipt
+    }
+
+    pub fn new_token<F: ToFormatted, G: TryInto<Decimal>>(&mut self, token_name: F, initial_distribution: G)
+        where <G as TryInto<Decimal>>::Error: std::fmt::Debug
+    {
+        match self.resources.get(&token_name.format()){
+            Some(_) => {
+                panic!("Token with name {} already exists", token_name.format());
+            }
+            None => {
+                let account = self.current_account().address().clone();
+                let token_address = self.engine_interface.new_fungible(account, initial_distribution.try_into().unwrap());
+                self.resources.insert(token_name.format(), token_address);
+            }
+        }
     }
 
     pub fn current_balance<F: ToFormatted>(&mut self, resource: F) -> Decimal {
