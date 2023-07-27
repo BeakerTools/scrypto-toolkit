@@ -1,20 +1,21 @@
-use std::path::Path;
 use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
-use radix_engine::types::{ComponentAddress, Decimal, GlobalAddress, PackageAddress, ResourceAddress, Secp256k1PublicKey};
+use radix_engine::types::{
+    ComponentAddress, Decimal, GlobalAddress, PackageAddress, ResourceAddress, Secp256k1PublicKey,
+};
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use scrypto_unit::TestRunner;
+use std::path::Path;
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::{Secp256k1PrivateKey, TestTransaction};
 
 pub struct EngineInterface {
-    test_runner: TestRunner
+    test_runner: TestRunner,
 }
 
 impl EngineInterface {
-
     pub fn new() -> Self {
         Self {
-            test_runner: TestRunner::builder().without_trace().build()
+            test_runner: TestRunner::builder().without_trace().build(),
         }
     }
 
@@ -26,7 +27,12 @@ impl EngineInterface {
         self.test_runner.new_account(false)
     }
 
-    pub fn execute_manifest(&mut self, manifest: TransactionManifestV1, with_trace: bool, initial_proofs: Vec<NonFungibleGlobalId>) -> TransactionReceipt {
+    pub fn execute_manifest(
+        &mut self,
+        manifest: TransactionManifestV1,
+        with_trace: bool,
+        initial_proofs: Vec<NonFungibleGlobalId>,
+    ) -> TransactionReceipt {
         let nonce = self.test_runner.next_transaction_nonce();
         let exec_config = ExecutionConfig::for_test_transaction().with_kernel_trace(with_trace);
 
@@ -46,14 +52,17 @@ impl EngineInterface {
 
     pub fn balance(&mut self, account: ComponentAddress, resource: ResourceAddress) -> Decimal {
         match self.test_runner.account_balance(account, resource) {
-            None => { Decimal::zero() }
-            Some(amount) => {
-                amount
-            }
+            None => Decimal::zero(),
+            Some(amount) => amount,
         }
     }
 
-    pub fn new_fungible(&mut self, account: ComponentAddress, initial_amount: Decimal) -> ResourceAddress{
-        self.test_runner.create_fungible_resource(initial_amount, 18, account)
+    pub fn new_fungible(
+        &mut self,
+        account: ComponentAddress,
+        initial_amount: Decimal,
+    ) -> ResourceAddress {
+        self.test_runner
+            .create_fungible_resource(initial_amount, 18, account)
     }
 }

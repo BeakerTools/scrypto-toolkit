@@ -52,7 +52,6 @@ from_return_impl!(Hash);
 from_return_impl!(Decimal);
 from_return_impl!(PreciseDecimal);
 
-
 macro_rules! from_return_tuple_impl {
     ( $( $idx:tt $type:ident )+ ) => {
         impl<$($type: FromInstruction + ScryptoDecode),+> FromInstruction for ($($type, )+){

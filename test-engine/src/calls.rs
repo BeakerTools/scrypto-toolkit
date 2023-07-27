@@ -1,12 +1,15 @@
-use radix_engine::transaction::{TransactionReceipt};
-use radix_engine::types::{ manifest_decode, ComponentAddress, Encoder, ManifestEncoder, ManifestValueKind, PackageAddress, ManifestArgs, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX};
+use radix_engine::transaction::TransactionReceipt;
+use radix_engine::types::{
+    manifest_decode, ComponentAddress, Encoder, ManifestArgs, ManifestEncoder, ManifestValueKind,
+    PackageAddress, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+};
 use transaction::builder::ManifestBuilder;
 
-use std::vec::Vec;
-use transaction::prelude::{TransactionManifestV1};
 use crate::account::Account;
 use crate::environment::EnvironmentEncode;
 use crate::test_engine::TestEngine;
+use std::vec::Vec;
+use transaction::prelude::TransactionManifestV1;
 
 pub struct CallBuilder<'a> {
     caller: Account,
@@ -25,10 +28,12 @@ impl<'a> CallBuilder<'a> {
         }
     }
 
-
     pub fn run(self) -> TransactionReceipt {
-        self.test_engine
-            .execute_call(self.manifest.clone().unwrap(), self.with_trace.clone(), vec![self.caller.proof()])
+        self.test_engine.execute_call(
+            self.manifest.clone().unwrap(),
+            self.with_trace.clone(),
+            vec![self.caller.proof()],
+        )
     }
 
     pub fn with_trace(mut self, trace: bool) -> Self {
@@ -42,7 +47,6 @@ impl<'a> CallBuilder<'a> {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
-
         let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
 
         let mut buf = Vec::new();

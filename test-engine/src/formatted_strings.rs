@@ -3,8 +3,8 @@ pub trait ToFormatted {
 }
 
 impl<T> ToFormatted for T
-    where
-        T: ToString,
+where
+    T: ToString,
 {
     fn format(&self) -> String {
         self.to_string().to_lowercase().replace("_", " ")
