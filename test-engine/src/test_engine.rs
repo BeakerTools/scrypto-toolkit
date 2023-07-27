@@ -1,8 +1,9 @@
 use std::path::Path;
 use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
-use radix_engine::types::{ComponentAddress, Decimal, GlobalAddress, HashMap, PackageAddress, ResourceAddress};
-use radix_engine_interface::prelude::MetadataValue;
+use radix_engine::types::{ComponentAddress, Decimal, GlobalAddress, HashMap, PackageAddress, ResourceAddress, XRD};
+use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;
+use crate::account::Account;
 use crate::calls::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
@@ -10,7 +11,7 @@ use crate::formatted_strings::ToFormatted;
 
 pub struct TestEngine {
     engine_interface: EngineInterface,
-    accounts: HashMap<String, ComponentAddress>,
+    accounts: HashMap<String, Account>,
     current_account: String,
     packages: HashMap<String, PackageAddress>,
     current_package: Option<String>,
@@ -23,9 +24,14 @@ impl TestEngine{
 
     pub fn new() -> Self {
         let mut engine_interface = EngineInterface::new();
-        let default_account = engine_interface.new_account();
+
+        let default_account = Account::new(&mut engine_interface);
         let mut accounts = HashMap::new();
         accounts.insert("default".format(), default_account);
+
+        let mut resources = HashMap::new();
+        resources.insert("Radix".format(), XRD);
+        resources.insert("XRD".format(), XRD);
 
         Self {
             engine_interface,
@@ -35,7 +41,7 @@ impl TestEngine{
             current_package: None,
             components: HashMap::new(),
             current_component: None,
-            resources: HashMap::new()
+            resources
         }
     }
 
@@ -57,11 +63,11 @@ impl TestEngine{
     pub fn new_account<F: ToFormatted>(&mut self, name: F) {
         match self.accounts.get(&name.format()) {
             Some(_) => panic!("An account with name {} already exists", name.format()),
-            None => self.accounts.insert(name.format(), self.engine_interface.new_account())
+            None => self.accounts.insert(name.format(), Account::new(&mut self.engine_interface))
         };
     }
 
-    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt{
+    pub fn new_component<F: ToFormatted>(&mut self, component_name: F, blueprint_name: &str, instantiation_function: &str, args: Vec<impl EnvironmentEncode>) -> TransactionReceipt{
         match self.components.get(&component_name.format())
         {
             Some(_) => panic!("A component with name {} already exists", component_name.format()),
@@ -91,7 +97,7 @@ impl TestEngine{
         }
     }
 
-    pub fn call_method(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> TransactionReceipt {
+    pub fn call_method(&mut self, method_name: &str, args: Vec<impl EnvironmentEncode>) -> TransactionReceipt {
         let caller = self.current_account().clone();
         let component = self.current_component().clone();
         let receipt = CallBuilder::from(self, caller)
@@ -104,7 +110,7 @@ impl TestEngine{
     }
 
     pub fn current_balance<F: ToFormatted>(&mut self, resource: F) -> Decimal {
-        let account = self.current_account().clone();
+        let account = self.current_account_address().clone();
         let resource = self.get_resource(resource);
         self.engine_interface.balance(account, resource)
     }
@@ -112,16 +118,17 @@ impl TestEngine{
     pub fn balance_of<F: ToFormatted, G: ToFormatted>(&mut self, account: F, resource: F) -> Decimal {
         let account = self.get_account(account);
         let resource = self.get_resource(resource);
-        self.engine_interface.balance(account, resource)
+        self.engine_interface.balance(account.clone(), resource)
     }
 
     pub(crate) fn execute_call(
         &mut self,
         manifest: TransactionManifestV1,
         with_trace: bool,
+        initial_proofs: Vec<NonFungibleGlobalId>
     ) -> TransactionReceipt {
 
-        let receipt = self.engine_interface.execute_manifest(manifest, with_trace);
+        let receipt = self.engine_interface.execute_manifest(manifest, with_trace, initial_proofs);
         if let TransactionResult::Commit(commit_result) = &receipt.transaction_result {
             self.update_resources_from_result(commit_result);
         }
@@ -142,10 +149,10 @@ impl TestEngine{
         }
     }
 
-    pub fn get_account<F: ToFormatted>(&self, name: F) -> ComponentAddress {
+    pub fn get_account<F: ToFormatted>(&self, name: F) -> &ComponentAddress {
         match self.accounts.get(&name.format()){
             None => panic!("There is no account with name {}", name.format()),
-            Some(address) => address.clone()
+            Some(account) => account.address()
         }
     }
 
@@ -162,8 +169,12 @@ impl TestEngine{
             .unwrap()
     }
 
-    pub fn current_account(&self) -> &ComponentAddress {
-        self.accounts.get(&self.current_account).unwrap()
+    pub fn current_account_address(&self) -> &ComponentAddress {
+        &self.accounts.get(&self.current_account).unwrap().address()
+    }
+
+    pub fn current_account(&self) -> &Account {
+        &self.accounts.get(&self.current_account).unwrap()
     }
 
     pub fn current_component(&self) -> &ComponentAddress {

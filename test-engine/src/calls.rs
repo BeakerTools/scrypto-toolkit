@@ -4,41 +4,21 @@ use transaction::builder::ManifestBuilder;
 
 use std::vec::Vec;
 use transaction::prelude::{TransactionManifestV1};
+use crate::account::Account;
 use crate::environment::EnvironmentEncode;
 use crate::test_engine::TestEngine;
 
-#[derive(Clone)]
-pub enum Outcome {
-    /// States that transaction should
-    Success,
-
-    /// States that an assertion is expected to fail with a given message
-    AssertionFailed(String),
-
-    /// States that another error should happen
-    OtherError(String),
-}
-
-impl Outcome {
-    pub fn is_success(&self) -> bool {
-        match self {
-            Outcome::Success => true,
-            _ => false,
-        }
-    }
-}
-
 pub struct CallBuilder<'a> {
-    caller: ComponentAddress,
+    caller: Account,
     manifest: Option<TransactionManifestV1>,
     test_engine: &'a mut TestEngine,
     with_trace: bool,
 }
 
 impl<'a> CallBuilder<'a> {
-    pub fn from(test_env: &'a mut TestEngine, caller: ComponentAddress) -> Self {
+    pub fn from(test_env: &'a mut TestEngine, caller: Account) -> Self {
         Self {
-            caller: caller.clone() ,
+            caller,
             manifest: None,
             test_engine: test_env,
             with_trace: false,
@@ -46,9 +26,9 @@ impl<'a> CallBuilder<'a> {
     }
 
 
-    pub fn run(mut self) -> TransactionReceipt {
+    pub fn run(self) -> TransactionReceipt {
         self.test_engine
-            .execute_call(self.manifest.clone().unwrap(), self.with_trace.clone())
+            .execute_call(self.manifest.clone().unwrap(), self.with_trace.clone(), vec![self.caller.proof()])
     }
 
     pub fn with_trace(mut self, trace: bool) -> Self {
@@ -60,7 +40,7 @@ impl<'a> CallBuilder<'a> {
         mut self,
         component: ComponentAddress,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<impl EnvironmentEncode>,
     ) -> Self {
 
         let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
@@ -77,7 +57,7 @@ impl<'a> CallBuilder<'a> {
                 &mut self.test_engine,
                 manifest,
                 &mut encoder,
-                self.caller.clone(),
+                self.caller.address().clone(),
             );
         }
 
@@ -86,7 +66,7 @@ impl<'a> CallBuilder<'a> {
 
         let transaction = manifest
             .call_method(component, method_name, manifest_arg)
-            .try_deposit_batch_or_abort(self.caller)
+            .deposit_batch(self.caller.address().clone())
             .build();
         self.manifest = Some(transaction);
         self
@@ -97,7 +77,7 @@ impl<'a> CallBuilder<'a> {
         package_address: PackageAddress,
         blueprint_name: &str,
         function_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<impl EnvironmentEncode>,
     ) -> Self {
         let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
 
@@ -113,7 +93,7 @@ impl<'a> CallBuilder<'a> {
                 &mut self.test_engine,
                 manifest,
                 &mut encoder,
-                self.caller.clone(),
+                self.caller.address().clone(),
             );
         }
 
@@ -122,7 +102,7 @@ impl<'a> CallBuilder<'a> {
 
         let transaction = manifest
             .call_function(package_address, blueprint_name, function_name, manifest_arg)
-            .try_deposit_batch_or_abort(self.caller)
+            .deposit_batch(self.caller.address().clone())
             .build();
         self.manifest = Some(transaction);
         self
