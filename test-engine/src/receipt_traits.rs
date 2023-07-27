@@ -6,12 +6,22 @@ pub trait Outcome {
 }
 
 impl Outcome for TransactionReceipt {
+
+    /// Asserts that the transaction succeeded.
+    /// Panics if the transaction was rejected, aborted or failed.
     fn assert_is_success(&self) {
-        if let TransactionResult::Reject(reject) = &self.transaction_result {
-            panic!("{}", reject.error);
-        } else if let TransactionResult::Commit(commit) = &self.transaction_result {
-            if let TransactionOutcome::Failure(failure) = &commit.outcome {
-                panic!("{}", failure)
+        match &self.transaction_result {
+            TransactionResult::Commit(commit) => match &commit.outcome {
+                TransactionOutcome::Success(output) => {},
+                TransactionOutcome::Failure(failure) => {
+                    panic!("Transaction failed with: {}", failure);
+                }
+            },
+            TransactionResult::Reject(reject) => {
+                panic!("Transaction rejected with: {}", reject.error);
+            }
+            TransactionResult::Abort(abort) => {
+                panic!("Transaction abort with: {}", abort.reason);
             }
         }
     }
@@ -25,6 +35,7 @@ impl<T> GetReturn<T> for TransactionReceipt
 where
     T: FromInstruction,
 {
+    /// Returns a method's return.
     fn get_return(&self) -> T {
         match &self.transaction_result {
             TransactionResult::Commit(commit) => match &commit.outcome {

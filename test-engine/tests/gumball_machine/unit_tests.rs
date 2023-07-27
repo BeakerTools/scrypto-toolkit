@@ -1,9 +1,9 @@
 mod gumball_machine_tests {
     use radix_engine::types::{dec, Decimal};
-    use sdt_test_engine::env_args;
-    use sdt_test_engine::environment::Environment;
-    use sdt_test_engine::receipt_traits::{GetReturn, Outcome};
-    use sdt_test_engine::test_engine::TestEngine;
+    use test_engine::env_args;
+    use test_engine::environment::Environment;
+    use test_engine::receipt_traits::{GetReturn, Outcome};
+    use test_engine::test_engine::TestEngine;
 
     #[test]
     fn test_buy_gumball_success() {

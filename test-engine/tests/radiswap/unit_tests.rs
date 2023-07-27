@@ -1,9 +1,9 @@
 mod radiswap_tests {
     use radix_engine::types::dec;
     use radix_engine_interface::blueprints::resource::OwnerRole;
-    use sdt_test_engine::env_args;
-    use sdt_test_engine::environment::Environment;
-    use sdt_test_engine::test_engine::TestEngine;
+    use test_engine::env_args;
+    use test_engine::environment::Environment;
+    use test_engine::test_engine::TestEngine;
 
     fn initialize() -> TestEngine {
         let mut test_engine = TestEngine::new();
@@ -49,7 +49,10 @@ mod radiswap_tests {
                 Environment::FungibleBucket("btc", dec!(1))
             ),
         );
-        test_engine.call_method("swap", env_args!(Environment::FungibleBucket("usd", dec!(1000))));
+        test_engine.call_method(
+            "swap",
+            env_args!(Environment::FungibleBucket("usd", dec!(1000))),
+        );
         let usd_amount = test_engine.current_balance("usd");
         let btc_amount = test_engine.current_balance("btc");
         assert_eq!(usd_amount, dec!(98000));
