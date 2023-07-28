@@ -35,7 +35,7 @@ impl<T> GetReturn<T> for TransactionReceipt
 where
     T: FromInstruction,
 {
-    /// Returns a method's return.
+    /// Returns the method's return from a receipt.
     fn get_return(&self) -> T {
         match &self.transaction_result {
             TransactionResult::Commit(commit) => match &commit.outcome {
