@@ -1,48 +1,84 @@
+use std::path::Path;
+use std::vec::Vec;
+
 use radix_engine::transaction::TransactionReceipt;
 use radix_engine::types::{
-    manifest_decode, ComponentAddress, Encoder, ManifestArgs, ManifestEncoder, ManifestValueKind,
-    PackageAddress, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
+    ManifestExpression, ManifestValueKind, PackageAddress, FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH,
+    MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
 };
 use transaction::builder::ManifestBuilder;
+use transaction::manifest::dumper::dump_manifest_to_file_system;
+use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, TransactionManifestV1};
 
 use crate::account::Account;
 use crate::environment::EnvironmentEncode;
+use crate::environment_reference::EnvRef;
+use crate::manifest_args;
 use crate::test_engine::TestEngine;
-use std::vec::Vec;
-use transaction::prelude::TransactionManifestV1;
 
 pub struct CallBuilder<'a> {
     caller: Account,
-    manifest: Option<TransactionManifestV1>,
+    manifest: TransactionManifestV1,
+    fee_payer: ComponentAddress,
+    fee_locked: Decimal,
+    deposit_destination: ComponentAddress,
     test_engine: &'a mut TestEngine,
+    output_manifest: Option<dyn AsRef<Path>>,
     with_trace: bool,
 }
 
 impl<'a> CallBuilder<'a> {
-    pub fn from(test_env: &'a mut TestEngine, caller: Account) -> Self {
-        Self {
-            caller,
-            manifest: None,
-            test_engine: test_env,
-            with_trace: false,
-        }
+    pub fn execute(mut self) -> TransactionReceipt {
+        self.write_lock();
+        self.write_deposit();
+
+        self.test_engine
+            .execute_call(self.manifest, self.with_trace, vec![self.caller.proof()])
     }
 
-    pub fn run(self) -> TransactionReceipt {
-        self.test_engine.execute_call(
-            self.manifest.clone().unwrap(),
-            self.with_trace.clone(),
-            vec![self.caller.proof()],
-        )
+    /// Deposits the batch to the given account.
+    ///
+    /// # Arguments
+    /// * `account`: reference name of the account to which deposit the batch.
+    pub fn deposit_batch<E: EnvRef>(mut self, account: E) -> Self{
+        self.deposit_destination = self.test_engine.get_account(account).clone();
+        self
+    }
+
+    /// Locks fees.
+    ///
+    /// # Arguments
+    /// * `locker`: reference name of the component that will pay the fees.
+    /// * `amount`: amount of fees to lock.
+    pub fn lock_fee<E: EnvRef>(mut self, locker: E, amount: Decimal) -> Self{
+        self.fee_payer = self.test_engine.get_component_ref(locker);
+        self.fee_locked = amount;
+        self
+    }
+
+    pub fn output<P: AsRef<Path>>(mut self, path:P) -> Self{
+        self.output_manifest = Some(path);
+        self
+    }
+
+    /// Displays trace or not.
+    ///
+    /// # Arguments
+    /// * `trace`:
+    pub fn with_trace(mut self, trace: bool) -> Self{
+        self.with_trace = trace;
+        self
     }
 
     pub(crate) fn call_method(
-        mut self,
+        test_engine: &'a mut TestEngine,
+        caller: Account,
         component: ComponentAddress,
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
-        let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
+        let mut manifest = ManifestBuilder::new();
 
         let mut buf = Vec::new();
         let mut encoder = ManifestEncoder::new(&mut buf, MANIFEST_SBOR_V1_MAX_DEPTH);
@@ -53,10 +89,10 @@ impl<'a> CallBuilder<'a> {
         encoder.write_size(args.len()).unwrap();
         for arg in args {
             manifest = arg.encode(
-                &mut self.test_engine,
+                &test_engine,
                 manifest,
                 &mut encoder,
-                self.caller.address().clone(),
+                caller.address().clone(),
             );
         }
 
@@ -65,20 +101,29 @@ impl<'a> CallBuilder<'a> {
 
         let transaction = manifest
             .call_method(component, method_name, manifest_arg)
-            .deposit_batch(self.caller.address().clone())
             .build();
-        self.manifest = Some(transaction);
-        self
+
+        Self {
+            caller,
+            manifest: transaction,
+            test_engine,
+            fee_payer: FAUCET,
+            fee_locked: dec!(5000),
+            deposit_destination: caller.address().clone(),
+            output_manifest: None,
+            with_trace: false,
+        }
     }
 
     pub(crate) fn call_function(
-        mut self,
+        test_engine: &'a mut TestEngine,
+        caller: Account,
         package_address: PackageAddress,
         blueprint_name: &str,
         function_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
-        let mut manifest = ManifestBuilder::new().lock_fee_from_faucet();
+        let mut manifest = ManifestBuilder::new();
 
         let mut buf = Vec::new();
         let mut encoder = ManifestEncoder::new(&mut buf, MANIFEST_SBOR_V1_MAX_DEPTH);
@@ -89,10 +134,10 @@ impl<'a> CallBuilder<'a> {
         encoder.write_size(args.len()).unwrap();
         for arg in args {
             manifest = arg.encode(
-                &mut self.test_engine,
+                &test_engine,
                 manifest,
                 &mut encoder,
-                self.caller.address().clone(),
+                caller.address().clone(),
             );
         }
 
@@ -101,9 +146,47 @@ impl<'a> CallBuilder<'a> {
 
         let transaction = manifest
             .call_function(package_address, blueprint_name, function_name, manifest_arg)
-            .deposit_batch(self.caller.address().clone())
             .build();
-        self.manifest = Some(transaction);
-        self
+
+        Self {
+            caller,
+            manifest: transaction,
+            test_engine,
+            fee_payer: FAUCET,
+            fee_locked: dec!(5000),
+            deposit_destination: caller.address().clone(),
+            output_manifest: None,
+            with_trace: false,
+        }
+    }
+
+    fn write_lock(&mut self) {
+        self.manifest.instructions.insert(
+            0,
+            transaction::model::InstructionV1::CallMethod {
+                address: DynamicGlobalAddress::from(self.fee_payer.clone()),
+                method_name: "lock_fee".to_string(),
+                args: manifest_args!(self.fee_locked).resolve(),
+            },
+        );
+    }
+
+    fn write_deposit(&mut self) {
+        self.manifest
+            .instructions
+            .push(transaction::model::InstructionV1::CallMethod {
+                address: DynamicGlobalAddress::from(self.caller.address().clone()),
+                method_name: "deposit_batch".to_string(),
+                args: manifest_args!(ManifestExpression::EntireWorktop).resolve(),
+            });
+    }
+
+    fn output_manifest(&self) {
+        match &self.output_manifest{
+            None => {},
+            Some(ok) => {
+                todo!()
+            }
+        }
     }
 }

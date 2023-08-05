@@ -1,16 +1,15 @@
-use crate::formatted_strings::ToFormatted;
-use crate::manifest_args;
-use crate::test_engine::TestEngine;
 use radix_engine::types::{
-    manifest_decode, ComponentAddress, Decimal, Hash, ManifestArgs, ManifestValueKind,
-    NonFungibleGlobalId, NonFungibleLocalId, PackageAddress, PreciseDecimal, ResourceAddress,
-    MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+    ComponentAddress, Decimal, Hash, NonFungibleGlobalId, NonFungibleLocalId, PackageAddress,
+    PreciseDecimal, ResourceAddress,
 };
 use radix_engine::types::{Encoder, ManifestEncoder};
 use radix_engine_interface::blueprints::resource::OwnerRole;
-use radix_engine_interface::count;
 use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
+
+use crate::environment_reference::EnvRef;
+use crate::manifest_args;
+use crate::test_engine::TestEngine;
 
 pub trait EnvironmentEncode {
     fn encode(
@@ -22,18 +21,18 @@ pub trait EnvironmentEncode {
     ) -> ManifestBuilder;
 }
 
-pub enum Environment<F: ToFormatted + Clone> {
-    Account(F),
-    Component(F),
-    Package(F),
-    FungibleBucket(F, Decimal),
-    NonFungibleBucket(F, Vec<NonFungibleLocalId>),
-    FungibleProof(F, Decimal),
-    NonFungibleProof(F, Vec<NonFungibleLocalId>),
-    Resource(F),
+pub enum Environment<E: EnvRef + Clone> {
+    Account(E),
+    Component(E),
+    Package(E),
+    FungibleBucket(E, Decimal),
+    NonFungibleBucket(E, Vec<NonFungibleLocalId>),
+    FungibleProof(E, Decimal),
+    NonFungibleProof(E, Vec<NonFungibleLocalId>),
+    Resource(E),
 }
 
-impl<F: ToFormatted + Clone> EnvironmentEncode for Environment<F> {
+impl<E: EnvRef + Clone> EnvironmentEncode for Environment<E> {
     fn encode(
         &self,
         test_engine: &TestEngine,

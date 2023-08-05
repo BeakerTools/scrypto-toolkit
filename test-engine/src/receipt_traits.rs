@@ -6,13 +6,12 @@ pub trait Outcome {
 }
 
 impl Outcome for TransactionReceipt {
-
     /// Asserts that the transaction succeeded.
     /// Panics if the transaction was rejected, aborted or failed.
     fn assert_is_success(&self) {
         match &self.transaction_result {
             TransactionResult::Commit(commit) => match &commit.outcome {
-                TransactionOutcome::Success(_) => {},
+                TransactionOutcome::Success(_) => {}
                 TransactionOutcome::Failure(failure) => {
                     panic!("Transaction failed with: {}", failure);
                 }
