@@ -2,12 +2,9 @@ use std::path::Path;
 use std::vec::Vec;
 
 use radix_engine::transaction::TransactionReceipt;
-use radix_engine::types::{
-    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
-    ManifestExpression, ManifestValueKind, PackageAddress, FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH,
-    MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
-};
+use radix_engine::types::{ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind, NetworkDefinition, PackageAddress};
 use transaction::builder::ManifestBuilder;
+use transaction::manifest::decompiler::ManifestObjectNames;
 use transaction::manifest::dumper::dump_manifest_to_file_system;
 use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, TransactionManifestV1};
 
@@ -24,7 +21,8 @@ pub struct CallBuilder<'a> {
     fee_locked: Decimal,
     deposit_destination: ComponentAddress,
     test_engine: &'a mut TestEngine,
-    output_manifest: Option<dyn AsRef<Path>>,
+    output_manifest: Option<(dyn AsRef<Path>, String)>,
+    object_names: ManifestObjectNames,
     with_trace: bool,
 }
 
@@ -32,6 +30,7 @@ impl<'a> CallBuilder<'a> {
     pub fn execute(mut self) -> TransactionReceipt {
         self.write_lock();
         self.write_deposit();
+        self.output_manifest();
 
         self.test_engine
             .execute_call(self.manifest, self.with_trace, vec![self.caller.proof()])
@@ -57,8 +56,8 @@ impl<'a> CallBuilder<'a> {
         self
     }
 
-    pub fn output<P: AsRef<Path>>(mut self, path:P) -> Self{
-        self.output_manifest = Some(path);
+    pub fn output<P: AsRef<Path>>(mut self, path:P, name: impl ToString) -> Self{
+        self.output_manifest = Some((path, name.to_string()));
         self
     }
 
@@ -99,18 +98,20 @@ impl<'a> CallBuilder<'a> {
         let value = manifest_decode(&buf).unwrap();
         let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
 
-        let transaction = manifest
-            .call_method(component, method_name, manifest_arg)
-            .build();
+        let manifest = manifest
+            .call_method(component, method_name, manifest_arg);
+
+        let object_names = manifest.object_names();
 
         Self {
             caller,
-            manifest: transaction,
+            manifest: manifest.build(),
             test_engine,
             fee_payer: FAUCET,
             fee_locked: dec!(5000),
             deposit_destination: caller.address().clone(),
             output_manifest: None,
+            object_names,
             with_trace: false,
         }
     }
@@ -144,18 +145,20 @@ impl<'a> CallBuilder<'a> {
         let value = manifest_decode(&buf).unwrap();
         let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
 
-        let transaction = manifest
-            .call_function(package_address, blueprint_name, function_name, manifest_arg)
-            .build();
+        let manifest = manifest
+            .call_function(package_address, blueprint_name, function_name, manifest_arg);
+
+        let object_names = manifest.object_names();
 
         Self {
             caller,
-            manifest: transaction,
+            manifest: manifest.build(),
             test_engine,
             fee_payer: FAUCET,
             fee_locked: dec!(5000),
             deposit_destination: caller.address().clone(),
             output_manifest: None,
+            object_names,
             with_trace: false,
         }
     }
@@ -184,8 +187,13 @@ impl<'a> CallBuilder<'a> {
     fn output_manifest(&self) {
         match &self.output_manifest{
             None => {},
-            Some(ok) => {
-                todo!()
+            Some((path, name)) => {
+                match dump_manifest_to_file_system(&self.manifest, self.object_names.clone(), path, Some(name),  &NetworkDefinition::kisharnet()) {
+                    Ok(_) => {}
+                    Err(error) => {
+                        panic!("Error when outputting manifest: {:?}", error);
+                    }
+                }
             }
         }
     }

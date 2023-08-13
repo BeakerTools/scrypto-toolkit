@@ -1,5 +1,6 @@
-use crate::from_instruction::FromInstruction;
 use radix_engine::transaction::{TransactionOutcome, TransactionReceipt, TransactionResult};
+
+use crate::from_instruction::FromInstruction;
 
 pub trait Outcome {
     fn assert_is_success(&self);
