@@ -1,8 +1,11 @@
-use std::path::Path;
 use std::vec::Vec;
 
 use radix_engine::transaction::TransactionReceipt;
-use radix_engine::types::{ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind, NetworkDefinition, PackageAddress};
+use radix_engine::types::{
+    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
+    ManifestExpression, ManifestValueKind, NetworkDefinition, PackageAddress, FAUCET,
+    MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+};
 use transaction::builder::ManifestBuilder;
 use transaction::manifest::decompiler::ManifestObjectNames;
 use transaction::manifest::dumper::dump_manifest_to_file_system;
@@ -21,7 +24,7 @@ pub struct CallBuilder<'a> {
     fee_locked: Decimal,
     deposit_destination: ComponentAddress,
     test_engine: &'a mut TestEngine,
-    output_manifest: Option<(dyn AsRef<Path>, String)>,
+    output_manifest: Option<(String, String)>,
     object_names: ManifestObjectNames,
     with_trace: bool,
 }
@@ -40,7 +43,7 @@ impl<'a> CallBuilder<'a> {
     ///
     /// # Arguments
     /// * `account`: reference name of the account to which deposit the batch.
-    pub fn deposit_batch<E: EnvRef>(mut self, account: E) -> Self{
+    pub fn deposit_batch<E: EnvRef>(mut self, account: E) -> Self {
         self.deposit_destination = self.test_engine.get_account(account).clone();
         self
     }
@@ -50,14 +53,14 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `locker`: reference name of the component that will pay the fees.
     /// * `amount`: amount of fees to lock.
-    pub fn lock_fee<E: EnvRef>(mut self, locker: E, amount: Decimal) -> Self{
+    pub fn lock_fee<E: EnvRef>(mut self, locker: E, amount: Decimal) -> Self {
         self.fee_payer = self.test_engine.get_component_ref(locker);
         self.fee_locked = amount;
         self
     }
 
-    pub fn output<P: AsRef<Path>>(mut self, path:P, name: impl ToString) -> Self{
-        self.output_manifest = Some((path, name.to_string()));
+    pub fn output(mut self, path: impl ToString, name: impl ToString) -> Self {
+        self.output_manifest = Some((path.to_string(), name.to_string()));
         self
     }
 
@@ -65,7 +68,7 @@ impl<'a> CallBuilder<'a> {
     ///
     /// # Arguments
     /// * `trace`:
-    pub fn with_trace(mut self, trace: bool) -> Self{
+    pub fn with_trace(mut self, trace: bool) -> Self {
         self.with_trace = trace;
         self
     }
@@ -98,10 +101,10 @@ impl<'a> CallBuilder<'a> {
         let value = manifest_decode(&buf).unwrap();
         let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
 
-        let manifest = manifest
-            .call_method(component, method_name, manifest_arg);
+        let manifest = manifest.call_method(component, method_name, manifest_arg);
 
         let object_names = manifest.object_names();
+        let deposit_destination = caller.address().clone();
 
         Self {
             caller,
@@ -109,7 +112,7 @@ impl<'a> CallBuilder<'a> {
             test_engine,
             fee_payer: FAUCET,
             fee_locked: dec!(5000),
-            deposit_destination: caller.address().clone(),
+            deposit_destination,
             output_manifest: None,
             object_names,
             with_trace: false,
@@ -145,10 +148,11 @@ impl<'a> CallBuilder<'a> {
         let value = manifest_decode(&buf).unwrap();
         let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
 
-        let manifest = manifest
-            .call_function(package_address, blueprint_name, function_name, manifest_arg);
+        let manifest =
+            manifest.call_function(package_address, blueprint_name, function_name, manifest_arg);
 
         let object_names = manifest.object_names();
+        let deposit_destination = caller.address().clone();
 
         Self {
             caller,
@@ -156,7 +160,7 @@ impl<'a> CallBuilder<'a> {
             test_engine,
             fee_payer: FAUCET,
             fee_locked: dec!(5000),
-            deposit_destination: caller.address().clone(),
+            deposit_destination,
             output_manifest: None,
             object_names,
             with_trace: false,
@@ -185,10 +189,16 @@ impl<'a> CallBuilder<'a> {
     }
 
     fn output_manifest(&self) {
-        match &self.output_manifest{
-            None => {},
+        match &self.output_manifest {
+            None => {}
             Some((path, name)) => {
-                match dump_manifest_to_file_system(&self.manifest, self.object_names.clone(), path, Some(name),  &NetworkDefinition::kisharnet()) {
+                match dump_manifest_to_file_system(
+                    &self.manifest,
+                    self.object_names.clone(),
+                    path,
+                    Some(name),
+                    &NetworkDefinition::kisharnet(),
+                ) {
                     Ok(_) => {}
                     Err(error) => {
                         panic!("Error when outputting manifest: {:?}", error);

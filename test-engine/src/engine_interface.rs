@@ -2,7 +2,8 @@ use std::path::Path;
 
 use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
 use radix_engine::types::{
-    ComponentAddress, Decimal, GlobalAddress, PackageAddress, ResourceAddress, Secp256k1PublicKey,
+    ComponentAddress, Decimal, GlobalAddress, NonFungibleLocalId, PackageAddress, ResourceAddress,
+    Secp256k1PublicKey,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use scrypto_unit::TestRunner;
@@ -49,6 +50,32 @@ impl EngineInterface {
 
     pub fn get_metadata(&mut self, address: GlobalAddress, key: &str) -> Option<MetadataValue> {
         self.test_runner.get_metadata(address, key)
+    }
+
+    pub fn nft_ids(
+        &mut self,
+        account: ComponentAddress,
+        resource_address: ResourceAddress,
+    ) -> Vec<NonFungibleLocalId> {
+        let account_vault = self
+            .test_runner
+            .get_component_vaults(account, resource_address.clone());
+        let account_vault = account_vault.get(0);
+        account_vault.map_or(vec![], |vault_id| {
+            match self.test_runner.inspect_non_fungible_vault(*vault_id) {
+                None => {
+                    vec![]
+                }
+                Some((_amount, id)) => match id {
+                    None => {
+                        vec![]
+                    }
+                    Some(id) => {
+                        vec![id]
+                    }
+                },
+            }
+        })
     }
 
     pub fn balance(&mut self, account: ComponentAddress, resource: ResourceAddress) -> Decimal {

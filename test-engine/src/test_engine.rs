@@ -2,7 +2,8 @@ use std::path::Path;
 
 use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
 use radix_engine::types::{
-    ComponentAddress, Decimal, FAUCET, GlobalAddress, HashMap, PackageAddress, ResourceAddress, XRD,
+    ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
+    ResourceAddress, FAUCET, XRD,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;
@@ -120,9 +121,13 @@ impl TestEngine {
                 receipt.assert_is_success();
 
                 if let TransactionResult::Commit(commit) = &receipt.transaction_result {
-                    let component: ComponentAddress =
-                        commit.new_component_addresses().get(0).unwrap().clone();
-                    self.components.insert(component_name.format(), component);
+                    match commit.new_component_addresses().get(0) {
+                        None => {}
+                        Some(component) => {
+                            self.components
+                                .insert(component_name.format(), component.clone());
+                        }
+                    }
 
                     if self.current_component.is_none() {
                         self.current_component = Some(component_name.format())
@@ -166,6 +171,12 @@ impl TestEngine {
         let caller = self.current_account().clone();
         let component = self.current_component().clone();
         CallBuilder::call_method(self, caller, component, method_name, args)
+    }
+
+    /// Calls faucet with the current account.
+    pub fn call_faucet(&mut self) {
+        let caller = self.current_account().clone();
+        CallBuilder::call_method(self, caller, FAUCET, "free", vec![]).execute();
     }
 
     /// Creates a new token with an initial_distribution and a reference name.
@@ -215,6 +226,31 @@ impl TestEngine {
         self.engine_interface.balance(account.clone(), resource)
     }
 
+    /// Returns the IDs of the given non-fungible resource owned by the current account.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name of the non-fungible resource.
+    pub fn current_ids_balance<E: EnvRef>(&mut self, resource: E) -> Vec<NonFungibleLocalId> {
+        let account = self.current_account_address().clone();
+        let resource = self.get_resource(resource);
+        self.engine_interface.nft_ids(account, resource)
+    }
+
+    /// Returns the IDs of the given non-fungible resource owned by the given account.
+    ///
+    /// # Arguments
+    /// * `account`: reference name of the account.
+    /// * `resource`: reference name of the resource.
+    pub fn ids_balance_of<E: EnvRef, G: EnvRef>(
+        &mut self,
+        account: E,
+        resource: E,
+    ) -> Vec<NonFungibleLocalId> {
+        let account = self.get_account(account);
+        let resource = self.get_resource(resource);
+        self.engine_interface.nft_ids(account.clone(), resource)
+    }
+
     /// Returns the [`PackageAddress`] of the given pacresourcekage.
     ///
     /// # Arguments
@@ -253,8 +289,8 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: reference name of the account.
     pub fn set_current_account<E: EnvRef>(&mut self, name: E) {
-        self.get_account(name);
         self.current_account = name.format();
+        self.get_account(name);
     }
 
     /// Sets the current component
@@ -262,8 +298,8 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: reference name of the component.
     pub fn set_current_component<E: EnvRef>(&mut self, name: E) {
+        self.current_component = Some(name.format());
         self.get_component(name);
-        self.current_component = Some(name.format())
     }
 
     /// Sets the current package.
@@ -271,8 +307,8 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: reference name of the account.
     pub fn set_current_package<E: EnvRef>(&mut self, name: E) {
-        self.get_package(name);
         self.current_package = Some(name.format());
+        self.get_package(name);
     }
 
     /// Returns the [`ResourceAddress`] of the given resource.
