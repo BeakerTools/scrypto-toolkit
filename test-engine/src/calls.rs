@@ -2,9 +2,9 @@ use std::vec::Vec;
 
 use radix_engine::transaction::TransactionReceipt;
 use radix_engine::types::{
-    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
-    ManifestExpression, ManifestValueKind, NetworkDefinition, PackageAddress, FAUCET,
-    MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+    ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH,
+    MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind,
+    NetworkDefinition, PackageAddress,
 };
 use transaction::builder::ManifestBuilder;
 use transaction::manifest::decompiler::ManifestObjectNames;

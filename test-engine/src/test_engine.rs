@@ -2,8 +2,8 @@ use std::path::Path;
 
 use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
 use radix_engine::types::{
-    dec, ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
-    ResourceAddress, FAUCET, XRD,
+    ComponentAddress, dec, Decimal, FAUCET, GlobalAddress, HashMap, NonFungibleLocalId,
+    PackageAddress, ResourceAddress, XRD,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;

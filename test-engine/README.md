@@ -9,5 +9,6 @@ To understand how to use this library, tests on some `scrypto-examples` packages
 - [Radiswap](tests/radiswap/unit_tests.rs)
 
 ## TODO
-- [ ] Implement a better way to deal with Buckets/Proofs return
-- [ ] Implement a way to query component states
+- [ ] Implement a better way to deal with Buckets/Proofs return.
+- [ ] Implement a way to query component states.
+- [ ] Deal with owner roles.
