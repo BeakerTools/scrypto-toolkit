@@ -1,8 +1,9 @@
 mod nft_marketplace_tests {
     use radix_engine_interface::dec;
-    use std::env::args;
+
     use test_engine::env_args;
     use test_engine::environment::Environment;
+    use test_engine::receipt_traits::Outcome;
     use test_engine::test_engine::TestEngine;
 
     fn bootstrap() -> TestEngine {
@@ -23,7 +24,8 @@ mod nft_marketplace_tests {
         assert_eq!(laptop_owned, dec!(4));
     }
 
-    fn init_dutch_auction(test_engine: &mut TestEngine) {
+    fn init_dutch_auction() -> TestEngine {
+        let mut test_engine = bootstrap();
         let car_id = test_engine.current_ids_balance("cars nft").pop();
         test_engine.new_component(
             "dutch_auction",
@@ -36,17 +38,17 @@ mod nft_marketplace_tests {
                 )],
                 Environment::Resource("xrd"),
                 dec!(10),
-                dec!(1000),
-                dec!(500),
-                14
+                dec!(5),
+                10 as u64
             ],
         );
+        test_engine.set_current_component("dutch auction");
+        test_engine
     }
 
     #[test]
     fn test_init_dutch_auction() {
-        let mut test_engine = bootstrap();
-        init_dutch_auction(&mut test_engine);
+        let mut test_engine = init_dutch_auction();
         assert_eq!(test_engine.current_balance("Ownership badge"), dec!(1));
     }
 
@@ -54,5 +56,49 @@ mod nft_marketplace_tests {
         test_engine.new_account(name.clone());
         test_engine.set_current_account(name);
         test_engine.call_faucet();
+    }
+
+    #[test]
+    fn test_buy_dutch_auction() {
+        let mut test_engine = init_dutch_auction();
+        new_buyer(&mut test_engine, "buyer");
+        let amount_owned_before = test_engine.current_balance("xrd");
+        test_engine
+            .call_method(
+                "buy",
+                env_args![Environment::FungibleBucket("xrd", dec!(10))],
+            )
+            .assert_is_success();
+        let amount_owned_after = test_engine.current_balance("radix");
+        assert_eq!(amount_owned_before - amount_owned_after, dec!(10));
+        assert_eq!(test_engine.current_balance("cars nft"), dec!(1));
+    }
+
+    #[test]
+    fn test_buy_after_epochs_dutch_auction() {
+        let mut test_engine = init_dutch_auction();
+        new_buyer(&mut test_engine, "buyer");
+        test_engine.jump_epochs(5);
+        let amount_owned_before = test_engine.current_balance("xrd");
+        test_engine
+            .custom_method_call(
+                "buy",
+                env_args![Environment::FungibleBucket("xrd", dec!(10))],
+            )
+            .output("tests/nft_marketplace/package/manifests/", "buy")
+            .execute();
+        let amount_owned_after = test_engine.current_balance("radix");
+        assert_eq!(amount_owned_before - amount_owned_after, dec!("7.5"));
+        assert_eq!(test_engine.current_balance("cars nft"), dec!(1));
+    }
+
+    #[test]
+    fn test_buy_after_epochs_not_enough_fails_dutch_auction() {
+        let mut test_engine = init_dutch_auction();
+        new_buyer(&mut test_engine, "buyer");
+        test_engine.jump_epochs(3);
+        test_engine.call_method("buy", env_args![
+            Environment::FungibleBucket("xrd", dec!(5))
+        ]).assert_failed_with("[Buy]: Invalid quantity was provided. This sale can only go through when 8.5 tokens are provided.");
     }
 }

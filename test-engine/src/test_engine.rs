@@ -2,7 +2,7 @@ use std::path::Path;
 
 use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
 use radix_engine::types::{
-    ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
+    dec, ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
     ResourceAddress, FAUCET, XRD,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
@@ -118,7 +118,7 @@ impl TestEngine {
                     args,
                 )
                 .execute();
-                receipt.assert_is_success();
+                let receipt = receipt.assert_is_success();
 
                 if let TransactionResult::Commit(commit) = &receipt.transaction_result {
                     match commit.new_component_addresses().get(0) {
@@ -176,7 +176,9 @@ impl TestEngine {
     /// Calls faucet with the current account.
     pub fn call_faucet(&mut self) {
         let caller = self.current_account().clone();
-        CallBuilder::call_method(self, caller, FAUCET, "free", vec![]).execute();
+        CallBuilder::call_method(self, caller, FAUCET, "free", vec![])
+            .lock_fee("faucet", dec!(10))
+            .execute();
     }
 
     /// Creates a new token with an initial_distribution and a reference name.
@@ -249,6 +251,34 @@ impl TestEngine {
         let account = self.get_account(account);
         let resource = self.get_resource(resource);
         self.engine_interface.nft_ids(account.clone(), resource)
+    }
+
+    /// Moves to next epoch.
+    pub fn next_epoch(&mut self) {
+        let epoch = self.engine_interface.get_epoch();
+        self.engine_interface.set_epoch(epoch.next());
+    }
+
+    /// Advances epochs by the given amount.
+    ///
+    /// # Arguments
+    /// * `epochs`: amount of epochs to jump to.
+    pub fn jump_epochs(&mut self, epochs: u64) {
+        let epoch = self.engine_interface.get_epoch();
+        self.engine_interface.set_epoch(epoch.after(epochs));
+    }
+
+    /// Jumps back epochs by the given amount.
+    ///
+    /// # Arguments
+    /// * `epochs`: amount of epochs to jump back to.
+    pub fn jump_back_epochs(&mut self, mut epochs: u64) {
+        let epoch = self.engine_interface.get_epoch();
+        while epochs != 0 {
+            epoch.previous();
+            epochs -= 1;
+        }
+        self.engine_interface.set_epoch(epoch)
     }
 
     /// Returns the [`PackageAddress`] of the given pacresourcekage.

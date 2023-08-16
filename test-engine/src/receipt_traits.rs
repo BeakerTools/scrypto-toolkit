@@ -3,16 +3,17 @@ use radix_engine::transaction::{TransactionOutcome, TransactionReceipt, Transact
 use crate::from_instruction::FromInstruction;
 
 pub trait Outcome {
-    fn assert_is_success(&self);
+    fn assert_is_success(self) -> Self;
+    fn assert_failed_with(self, error: &str) -> Self;
 }
 
 impl Outcome for TransactionReceipt {
     /// Asserts that the transaction succeeded.
     /// Panics if the transaction was rejected, aborted or failed.
-    fn assert_is_success(&self) {
+    fn assert_is_success(self) -> Self {
         match &self.transaction_result {
             TransactionResult::Commit(commit) => match &commit.outcome {
-                TransactionOutcome::Success(_) => {}
+                TransactionOutcome::Success(_) => self,
                 TransactionOutcome::Failure(failure) => {
                     panic!("Transaction failed with: {}", failure);
                 }
@@ -21,7 +22,40 @@ impl Outcome for TransactionReceipt {
                 panic!("Transaction rejected with: {}", reject.error);
             }
             TransactionResult::Abort(abort) => {
-                panic!("Transaction abort with: {}", abort.reason);
+                panic!("Transaction aborted with: {}", abort.reason);
+            }
+        }
+    }
+
+    /// Asserts that the transaction failed with a given message.
+    /// Panics if the transaction succeeded or was rejected/aborted.
+    ///
+    /// # Arguments
+    /// * `error` : Expected error message.
+    fn assert_failed_with(self, error: &str) -> Self {
+        match &self.transaction_result {
+            TransactionResult::Commit(commit) => match &commit.outcome {
+                TransactionOutcome::Success(_) => {
+                    panic!("Transaction succeeded !");
+                }
+                TransactionOutcome::Failure(failure) => {
+                    if failure.to_string().contains(error) {
+                        self
+                    } else {
+                        panic!(
+                            "Transaction did not fail with expected error ! \n\
+                                Error: {} \n\
+                                Expected Error: {}",
+                            failure, error
+                        );
+                    }
+                }
+            },
+            TransactionResult::Reject(reject) => {
+                panic!("Transaction rejected with: {}", reject.error);
+            }
+            TransactionResult::Abort(abort) => {
+                panic!("Transaction aborted with: {}", abort.reason);
             }
         }
     }

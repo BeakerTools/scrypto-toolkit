@@ -2,8 +2,8 @@ use std::path::Path;
 
 use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
 use radix_engine::types::{
-    ComponentAddress, Decimal, GlobalAddress, NonFungibleLocalId, PackageAddress, ResourceAddress,
-    Secp256k1PublicKey,
+    ComponentAddress, Decimal, Epoch, GlobalAddress, NonFungibleLocalId, PackageAddress,
+    ResourceAddress, Secp256k1PublicKey,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use scrypto_unit::TestRunner;
@@ -92,5 +92,13 @@ impl EngineInterface {
     ) -> ResourceAddress {
         self.test_runner
             .create_fungible_resource(initial_amount, 18, account)
+    }
+
+    pub fn set_epoch(&mut self, epoch: Epoch) {
+        self.test_runner.set_current_epoch(epoch);
+    }
+
+    pub fn get_epoch(&mut self) -> Epoch {
+        self.test_runner.get_current_epoch()
     }
 }

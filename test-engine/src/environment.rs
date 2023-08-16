@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use radix_engine::types::{
     ComponentAddress, Decimal, Hash, HashMap, HashSet, IndexMap, IndexSet, NonFungibleGlobalId,
     NonFungibleLocalId, PackageAddress, PreciseDecimal, ResourceAddress,
@@ -6,7 +8,6 @@ use radix_engine::types::{Encode, ManifestCustomValueKind, ValueKind};
 use radix_engine::types::{Encoder, ManifestEncoder};
 use radix_engine_interface::blueprints::resource::OwnerRole;
 use radix_engine_interface::count;
-use std::collections::{BTreeMap, BTreeSet};
 use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
 use transaction::prelude::Categorize;
@@ -77,7 +78,7 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let resource_address = test_engine.get_resource(resource.clone());
                 let manifest_builder = manifest_builder.call_method(
                     caller,
-                    "withdraw_by_ids",
+                    "withdraw_non_fungibles",
                     manifest_args!(resource_address.clone(), ids.clone()),
                 );
                 let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
@@ -92,7 +93,7 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let resource_address = test_engine.get_resource(resource.clone());
                 let manifest_builder = manifest_builder.call_method(
                     caller,
-                    "create_proof_by_amount",
+                    "create_proof_of_amount",
                     manifest_args!(resource_address.clone(), amount),
                 );
                 let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
@@ -107,7 +108,7 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let resource_address = test_engine.get_resource(resource.clone());
                 let manifest_builder = manifest_builder.call_method(
                     caller,
-                    "create_proof_by_ids",
+                    "create_proof_of_non_fungibles",
                     manifest_args!(resource_address.clone(), ids.clone()),
                 );
                 let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
@@ -149,6 +150,7 @@ impl<E: EnvRef + Clone> EnvironmentEncode for Vec<Environment<E>> {
         caller: ComponentAddress,
     ) -> ManifestBuilder {
         let mut manifest_builder = manifest_builder;
+
         encoder.write_value_kind(ValueKind::Array).expect("");
         let size = self.len();
         let mut encoded = Vec::new();
@@ -285,18 +287,3 @@ macro_rules!double_collection_impl {
 double_collection_impl!(BTreeMap,);
 double_collection_impl!(HashMap, Ord, std::hash::Hash);
 double_collection_impl!(IndexMap, std::hash::Hash, Eq, PartialEq);
-
-
-/*impl<T: for<'a> Encode<ManifestCustomValueKind, ManifestEncoder<'a>>> EnvironmentEncode for T {
-    fn encode(
-        &self,
-        _test_engine: &TestEngine,
-        manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
-        _caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        encoder.encode(&self).unwrap();
-        manifest_builder
-    }
-}
-*/
