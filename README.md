@@ -1,4 +1,4 @@
-# Beaker Toolkit
+# Scrypto Toolkit
 This library aims at providing open source tools for Scrypto developers.
 At the moment, these include:  
 - [Maths library](maths/README.md)

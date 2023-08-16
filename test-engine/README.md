@@ -1,4 +1,4 @@
-# Beaker Test Engine
+# Test Engine
 This library is a layer on top of the `scrypto-unit` library to make writing test easier. 
 
 
