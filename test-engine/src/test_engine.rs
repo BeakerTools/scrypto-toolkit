@@ -1,16 +1,19 @@
+use std::path::Path;
+
+use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
+use radix_engine::types::{
+    ComponentAddress, dec, Decimal, FAUCET, GlobalAddress, HashMap, NonFungibleLocalId,
+    PackageAddress, ResourceAddress, XRD,
+};
+use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
+use transaction::model::TransactionManifestV1;
+
 use crate::account::Account;
 use crate::calls::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
-use crate::formatted_strings::ToFormatted;
+use crate::environment_reference::EnvRef;
 use crate::receipt_traits::Outcome;
-use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
-use radix_engine::types::{
-    ComponentAddress, Decimal, GlobalAddress, HashMap, PackageAddress, ResourceAddress, XRD,
-};
-use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
-use std::path::Path;
-use transaction::model::TransactionManifestV1;
 
 pub struct TestEngine {
     engine_interface: EngineInterface,
@@ -36,13 +39,16 @@ impl TestEngine {
         resources.insert("Radix".format(), XRD);
         resources.insert("XRD".format(), XRD);
 
+        let mut components = HashMap::new();
+        components.insert("faucet".format(), FAUCET);
+
         Self {
             engine_interface,
             accounts,
             current_account: "default".format(),
             packages: HashMap::new(),
             current_package: None,
-            components: HashMap::new(),
+            components,
             current_component: None,
             resources,
         }
@@ -53,7 +59,7 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: name that will be used to reference the package.
     /// * `path`: path of the package.
-    pub fn new_package<F: ToFormatted, P: AsRef<Path>>(&mut self, name: F, path: P) {
+    pub fn new_package<E: EnvRef, P: AsRef<Path>>(&mut self, name: E, path: P) {
         match self.packages.get(&name.format()) {
             Some(_) => {
                 panic!("A package with name {} already exists", name.format());
@@ -72,7 +78,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: name that will be used to reference the account.
-    pub fn new_account<F: ToFormatted>(&mut self, name: F) {
+    pub fn new_account<E: EnvRef>(&mut self, name: E) {
         match self.accounts.get(&name.format()) {
             Some(_) => panic!("An account with name {} already exists", name.format()),
             None => self
@@ -88,9 +94,9 @@ impl TestEngine {
     /// * `blueprint_name`: name of the blueprint.
     /// * `instantiation_function`: name of the function that instantiates the component.
     /// * `args`: environment arguments to instantiate the component.
-    pub fn new_component<F: ToFormatted>(
+    pub fn new_component<E: EnvRef>(
         &mut self,
-        component_name: F,
+        component_name: E,
         blueprint_name: &str,
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
@@ -103,15 +109,25 @@ impl TestEngine {
             None => {
                 let caller = self.current_account().clone();
                 let package = self.current_package().clone();
-                let receipt = CallBuilder::from(self, caller)
-                    .call_function(package, blueprint_name, instantiation_function, args)
-                    .run();
-                receipt.assert_is_success();
+                let receipt = CallBuilder::call_function(
+                    self,
+                    caller,
+                    package,
+                    blueprint_name,
+                    instantiation_function,
+                    args,
+                )
+                .execute();
+                let receipt = receipt.assert_is_success();
 
                 if let TransactionResult::Commit(commit) = &receipt.transaction_result {
-                    let component: ComponentAddress =
-                        commit.new_component_addresses().get(0).unwrap().clone();
-                    self.components.insert(component_name.format(), component);
+                    match commit.new_component_addresses().get(0) {
+                        None => {}
+                        Some(component) => {
+                            self.components
+                                .insert(component_name.format(), component.clone());
+                        }
+                    }
 
                     if self.current_component.is_none() {
                         self.current_component = Some(component_name.format())
@@ -139,13 +155,30 @@ impl TestEngine {
     ) -> TransactionReceipt {
         let caller = self.current_account().clone();
         let component = self.current_component().clone();
-        let receipt = CallBuilder::from(self, caller)
-            .call_method(component, method_name, args)
-            .run();
-        if let TransactionResult::Commit(commit) = &receipt.transaction_result {
-            self.update_resources_from_result(commit);
-        }
-        receipt
+        CallBuilder::call_method(self, caller, component, method_name, args).execute()
+    }
+
+    /// Creates a call builder for a method call.
+    ///
+    /// # Arguments
+    /// * `method_name`: name of the method.
+    /// * `args`: environment arguments to call the method.
+    pub fn custom_method_call(
+        &mut self,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> CallBuilder {
+        let caller = self.current_account().clone();
+        let component = self.current_component().clone();
+        CallBuilder::call_method(self, caller, component, method_name, args)
+    }
+
+    /// Calls faucet with the current account.
+    pub fn call_faucet(&mut self) {
+        let caller = self.current_account().clone();
+        CallBuilder::call_method(self, caller, FAUCET, "free", vec![])
+            .lock_fee("faucet", dec!(10))
+            .execute();
     }
 
     /// Creates a new token with an initial_distribution and a reference name.
@@ -153,9 +186,9 @@ impl TestEngine {
     /// # Arguments
     /// * `token_name`: name that will be used to reference the token.
     /// * `initial_distribution`: initial distribution of the token.
-    pub fn new_token<F: ToFormatted, G: TryInto<Decimal>>(
+    pub fn new_token<E: EnvRef, G: TryInto<Decimal>>(
         &mut self,
-        token_name: F,
+        token_name: E,
         initial_distribution: G,
     ) where
         <G as TryInto<Decimal>>::Error: std::fmt::Debug,
@@ -178,7 +211,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `resource`: reference name of the resource.
-    pub fn current_balance<F: ToFormatted>(&mut self, resource: F) -> Decimal {
+    pub fn current_balance<E: EnvRef>(&mut self, resource: E) -> Decimal {
         let account = self.current_account_address().clone();
         let resource = self.get_resource(resource);
         self.engine_interface.balance(account, resource)
@@ -189,21 +222,70 @@ impl TestEngine {
     /// # Arguments
     /// * `account`: reference name of the account.
     /// * `resource`: reference name of the resource.
-    pub fn balance_of<F: ToFormatted, G: ToFormatted>(
-        &mut self,
-        account: F,
-        resource: F,
-    ) -> Decimal {
+    pub fn balance_of<E: EnvRef, G: EnvRef>(&mut self, account: E, resource: E) -> Decimal {
         let account = self.get_account(account);
         let resource = self.get_resource(resource);
         self.engine_interface.balance(account.clone(), resource)
     }
 
-    /// Returns the [`PackageAddress`] of the given package.
+    /// Returns the IDs of the given non-fungible resource owned by the current account.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name of the non-fungible resource.
+    pub fn current_ids_balance<E: EnvRef>(&mut self, resource: E) -> Vec<NonFungibleLocalId> {
+        let account = self.current_account_address().clone();
+        let resource = self.get_resource(resource);
+        self.engine_interface.nft_ids(account, resource)
+    }
+
+    /// Returns the IDs of the given non-fungible resource owned by the given account.
+    ///
+    /// # Arguments
+    /// * `account`: reference name of the account.
+    /// * `resource`: reference name of the resource.
+    pub fn ids_balance_of<E: EnvRef, G: EnvRef>(
+        &mut self,
+        account: E,
+        resource: E,
+    ) -> Vec<NonFungibleLocalId> {
+        let account = self.get_account(account);
+        let resource = self.get_resource(resource);
+        self.engine_interface.nft_ids(account.clone(), resource)
+    }
+
+    /// Moves to next epoch.
+    pub fn next_epoch(&mut self) {
+        let epoch = self.engine_interface.get_epoch();
+        self.engine_interface.set_epoch(epoch.next());
+    }
+
+    /// Advances epochs by the given amount.
+    ///
+    /// # Arguments
+    /// * `epochs`: amount of epochs to jump to.
+    pub fn jump_epochs(&mut self, epochs: u64) {
+        let epoch = self.engine_interface.get_epoch();
+        self.engine_interface.set_epoch(epoch.after(epochs));
+    }
+
+    /// Jumps back epochs by the given amount.
+    ///
+    /// # Arguments
+    /// * `epochs`: amount of epochs to jump back to.
+    pub fn jump_back_epochs(&mut self, mut epochs: u64) {
+        let epoch = self.engine_interface.get_epoch();
+        while epochs != 0 {
+            epoch.previous();
+            epochs -= 1;
+        }
+        self.engine_interface.set_epoch(epoch)
+    }
+
+    /// Returns the [`PackageAddress`] of the given pacresourcekage.
     ///
     /// # Arguments
     /// * `name`: reference name of the package.
-    pub fn get_package<F: ToFormatted>(&self, name: F) -> PackageAddress {
+    pub fn get_package<E: EnvRef>(&self, name: E) -> PackageAddress {
         match self.packages.get(&name.format()) {
             None => panic!("There is no package with name {}", name.format()),
             Some(address) => address.clone(),
@@ -214,7 +296,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
-    pub fn get_component<F: ToFormatted>(&self, name: F) -> ComponentAddress {
+    pub fn get_component<E: EnvRef>(&self, name: E) -> ComponentAddress {
         match self.components.get(&name.format()) {
             None => panic!("There is no component with name {}", name.format()),
             Some(address) => address.clone(),
@@ -225,18 +307,45 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the account.
-    pub fn get_account<F: ToFormatted>(&self, name: F) -> &ComponentAddress {
+    pub fn get_account<E: EnvRef>(&self, name: E) -> &ComponentAddress {
         match self.accounts.get(&name.format()) {
             None => panic!("There is no account with name {}", name.format()),
             Some(account) => account.address(),
         }
     }
 
+    /// Sets the current account.
+    ///
+    /// # Arguments
+    /// * `name`: reference name of the account.
+    pub fn set_current_account<E: EnvRef>(&mut self, name: E) {
+        self.current_account = name.format();
+        self.get_account(name);
+    }
+
+    /// Sets the current component
+    ///
+    /// # Arguments
+    /// * `name`: reference name of the component.
+    pub fn set_current_component<E: EnvRef>(&mut self, name: E) {
+        self.current_component = Some(name.format());
+        self.get_component(name);
+    }
+
+    /// Sets the current package.
+    ///
+    /// # Arguments
+    /// * `name`: reference name of the account.
+    pub fn set_current_package<E: EnvRef>(&mut self, name: E) {
+        self.current_package = Some(name.format());
+        self.get_package(name);
+    }
+
     /// Returns the [`ResourceAddress`] of the given resource.
     ///
     /// # Arguments
     /// * `name`: reference name of the resource.
-    pub fn get_resource<F: ToFormatted>(&self, name: F) -> ResourceAddress {
+    pub fn get_resource<E: EnvRef>(&self, name: E) -> ResourceAddress {
         match self.resources.get(&name.format()) {
             None => panic!("There is no resource with name {}", name.format()),
             Some(address) => address.clone(),
@@ -262,6 +371,21 @@ impl TestEngine {
             .unwrap()
     }
 
+    pub(crate) fn get_component_ref<E: EnvRef>(&self, name: E) -> ComponentAddress {
+        let name = name.format();
+        match self.accounts.get(&name) {
+            None => match self.components.get(&name) {
+                None => {
+                    panic!(
+                        "There is no environment reference with name {}",
+                        name.format()
+                    )
+                }
+                Some(component) => component.clone(),
+            },
+            Some(account) => account.address().clone(),
+        }
+    }
 
     pub(crate) fn current_account(&self) -> &Account {
         &self.accounts.get(&self.current_account).unwrap()

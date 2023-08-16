@@ -1,10 +1,12 @@
+use std::path::Path;
+
 use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
 use radix_engine::types::{
-    ComponentAddress, Decimal, GlobalAddress, PackageAddress, ResourceAddress, Secp256k1PublicKey,
+    ComponentAddress, Decimal, Epoch, GlobalAddress, NonFungibleLocalId, PackageAddress,
+    ResourceAddress, Secp256k1PublicKey,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use scrypto_unit::TestRunner;
-use std::path::Path;
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::{Secp256k1PrivateKey, TestTransaction};
 
@@ -50,6 +52,32 @@ impl EngineInterface {
         self.test_runner.get_metadata(address, key)
     }
 
+    pub fn nft_ids(
+        &mut self,
+        account: ComponentAddress,
+        resource_address: ResourceAddress,
+    ) -> Vec<NonFungibleLocalId> {
+        let account_vault = self
+            .test_runner
+            .get_component_vaults(account, resource_address.clone());
+        let account_vault = account_vault.get(0);
+        account_vault.map_or(vec![], |vault_id| {
+            match self.test_runner.inspect_non_fungible_vault(*vault_id) {
+                None => {
+                    vec![]
+                }
+                Some((_amount, id)) => match id {
+                    None => {
+                        vec![]
+                    }
+                    Some(id) => {
+                        vec![id]
+                    }
+                },
+            }
+        })
+    }
+
     pub fn balance(&mut self, account: ComponentAddress, resource: ResourceAddress) -> Decimal {
         match self.test_runner.account_balance(account, resource) {
             None => Decimal::zero(),
@@ -64,5 +92,13 @@ impl EngineInterface {
     ) -> ResourceAddress {
         self.test_runner
             .create_fungible_resource(initial_amount, 18, account)
+    }
+
+    pub fn set_epoch(&mut self, epoch: Epoch) {
+        self.test_runner.set_current_epoch(epoch);
+    }
+
+    pub fn get_epoch(&mut self) -> Epoch {
+        self.test_runner.get_current_epoch()
     }
 }

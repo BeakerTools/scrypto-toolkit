@@ -1,8 +1,8 @@
-pub trait ToFormatted {
+pub trait EnvRef {
     fn format(&self) -> String;
 }
 
-impl<T> ToFormatted for T
+impl<T> EnvRef for T
 where
     T: ToString,
 {

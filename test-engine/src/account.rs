@@ -1,8 +1,9 @@
-use crate::engine_interface::EngineInterface;
 use radix_engine::types::Secp256k1PublicKey;
 use radix_engine_interface::blueprints::resource::FromPublicKey;
 use radix_engine_interface::prelude::NonFungibleGlobalId;
 use radix_engine_interface::types::ComponentAddress;
+
+use crate::engine_interface::EngineInterface;
 
 #[derive(Clone)]
 pub struct Account {
