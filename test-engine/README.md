@@ -15,7 +15,7 @@ To instantiate a new `TestEngine`, call the `new` function:
 ```Rust
 let mut test_engine = TestEngine::new()
 ```
-Note that at instantiation, a default account is created and is referenced by `default`. We can create a new account by 
+Note that at instantiation a default account is created and is referenced by `default`. We can create a new account by 
 calling the `new_account` method and give its reference name (see later):
 ```Rust
 test_engine.new_account("custom");
@@ -51,9 +51,9 @@ let xrd_balance = test_engine.current_balance("RAd_Ix"); // _ is replaced by an 
 let xrd_balance = test_engine.current_balance("RA   dIx"); // spaces are replaced by empty characters.
 let xrd_balance = test_engine.current_balance("RAdIx"); // Resources can also be referenced by their name.
 ```
-We can also query the XRD balance of the `custom` account:
+We can also query the XRD balance of the `default` account:
 ```Rust
-let custom_xrd_balance = test_engine.balance_of("CuStom", "XRD");
+let custom_xrd_balance = test_engine.balance_of("def ault", "XRD");
 ```
 
 ## Instantiate a blueprint
@@ -76,7 +76,7 @@ test_engine.new_component(
 env_args!(dec!(5)), // Arguments to instantiate the package
 );
 ```
-The `env_args!` macro is the macro of this package to pass arguments with environment references to calls (see more in
+The `env_args!` macro is the macro used by this package to pass arguments with environment references to calls (see more in
 next section). Note that the first component that has been instantiated is used as the default current component. We can
 only call methods on the current component. We can set another component as current component by calling the 
 `set_current_component` method:
@@ -144,7 +144,7 @@ which every remaining resources are deposited and also output the manifest:
 test_engine.custom_method_call(
         "buy_gumball",
         env_args!(Environment::FungibleBucket("XRD", dec!(10))))
-    .deposit_batch("c   ust O m")
+    .deposit_batch("d Ef A    ult")
     .output(output_path, file_name)
     .execute()
 ```
@@ -159,7 +159,7 @@ test_engine.call_method(
             env_args!(Environment::FungibleBucket("XRD", dec!(10))),
         ).assert_is_success();
 ```
-We can also check that a `panic!` has successfully been triggered:
+We can also check that a `panic!` has successfully been triggered with the correct message:
 ```Rust
 test_engine.call_method("buy", env_args![
             Environment::FungibleBucket("xrd", dec!(5))
