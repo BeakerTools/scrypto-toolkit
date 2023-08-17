@@ -149,6 +149,17 @@ test_engine.custom_method_call(
     .execute()
 ```
 
+## Method calls with badges
+To call a method that requires a badge, we can use the `call_method_with_badge` method:
+```Rust
+test_engine.call_method_with_badge("cancel_sale", "Ownership badge", env_args!());
+```
+If we are making a custom call, we can use the `with_badge` option:
+```Rust
+test_engine.custom_method_call(("cancel_sale", env_args!())
+    .with_badge("Ownership badge")
+    .execute();
+```
 
 ## Method's return
 The `call_method` (or `execute()` if we made a custom call) method returns a `TransactionReceipt` for the transaction.
