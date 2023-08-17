@@ -2,7 +2,11 @@ use std::collections::BTreeSet;
 use std::vec::Vec;
 
 use radix_engine::transaction::TransactionReceipt;
-use radix_engine::types::{ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind, NetworkDefinition, NonFungibleLocalId, PackageAddress, ResourceAddress};
+use radix_engine::types::{
+    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
+    ManifestExpression, ManifestValueKind, NetworkDefinition, NonFungibleLocalId, PackageAddress,
+    ResourceAddress, FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
+};
 use transaction::builder::ManifestBuilder;
 use transaction::manifest::decompiler::ManifestObjectNames;
 use transaction::manifest::dumper::dump_manifest_to_file_system;
@@ -52,9 +56,12 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `locker`: reference name of the component that will pay the fees.
     /// * `amount`: amount of fees to lock.
-    pub fn lock_fee<E: EnvRef>(mut self, locker: E, amount: Decimal) -> Self {
+    pub fn lock_fee<E: EnvRef, D: TryInto<Decimal>>(mut self, locker: E, amount: D) -> Self
+    where
+        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+    {
         self.fee_payer = self.test_engine.get_component_ref(locker);
-        self.fee_locked = amount;
+        self.fee_locked = amount.try_into().unwrap();
         self
     }
 
@@ -72,10 +79,17 @@ impl<'a> CallBuilder<'a> {
     ///
     /// # Arguments
     /// * `badge_name` : reference name of the resource used as admin badge.
-    pub fn with_badge<E: EnvRef>(mut self, badge_name: E) -> Self{
+    pub fn with_badge<E: EnvRef>(mut self, badge_name: E) -> Self {
         let resource = self.test_engine.get_resource(badge_name);
-        let ids_tree: Option<BTreeSet<NonFungibleLocalId>> = if resource.is_fungible() { None } else {
-            Some(self.test_engine.ids_owned_at_address(resource.clone()).into_iter().collect())
+        let ids_tree: Option<BTreeSet<NonFungibleLocalId>> = if resource.is_fungible() {
+            None
+        } else {
+            Some(
+                self.test_engine
+                    .ids_owned_at_address(resource.clone())
+                    .into_iter()
+                    .collect(),
+            )
         };
 
         self.admin_badge = Some((resource, ids_tree));
@@ -209,27 +223,26 @@ impl<'a> CallBuilder<'a> {
     }
     fn write_badge(&mut self) {
         match &self.admin_badge {
-           None => {},
+            None => {}
             Some((badge, opt_ids)) => {
-
                 if badge.is_fungible() {
                     self.manifest.instructions.insert(
                         1,
                         transaction::model::InstructionV1::CallMethod {
                             address: DynamicGlobalAddress::from(self.caller.address().clone()),
                             method_name: "create_proof_of_amount".to_string(),
-                            args: manifest_args!(badge.clone(), Decimal::one()).resolve()
-                        }
+                            args: manifest_args!(badge.clone(), Decimal::one()).resolve(),
+                        },
                     )
-                }
-                else {
+                } else {
                     self.manifest.instructions.insert(
                         1,
                         transaction::model::InstructionV1::CallMethod {
                             address: DynamicGlobalAddress::from(self.caller.address().clone()),
                             method_name: "create_proof_of_non_fungibles".to_string(),
-                            args: manifest_args!(badge.clone(), opt_ids.clone().unwrap()).resolve()
-                        });
+                            args: manifest_args!(badge.clone(), opt_ids.clone().unwrap()).resolve(),
+                        },
+                    );
                 }
             }
         }

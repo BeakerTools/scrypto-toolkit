@@ -7,6 +7,9 @@ where
     T: ToString,
 {
     fn format(&self) -> String {
-        self.to_string().to_lowercase().replace("_", " ")
+        self.to_string()
+            .to_lowercase()
+            .replace("_", "")
+            .replace(" ", "")
     }
 }
