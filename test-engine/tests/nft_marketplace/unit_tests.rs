@@ -101,4 +101,12 @@ mod nft_marketplace_tests {
             Environment::FungibleBucket("xrd", dec!(5))
         ]).assert_failed_with("[Buy]: Invalid quantity was provided. This sale can only go through when 8.5 tokens are provided.");
     }
+
+    #[test]
+    fn test_cancel_sale() {
+        let mut test_engine = init_dutch_auction();
+        test_engine.call_method_with_badge("cancel_sale", "Ownership badge", env_args!());
+        let nfts_owned = test_engine.current_balance("cars nft");
+        assert_eq!(nfts_owned, dec!(4));
+    }
 }
