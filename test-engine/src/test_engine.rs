@@ -173,6 +173,23 @@ impl TestEngine {
         CallBuilder::call_method(self, caller, component, method_name, args)
     }
 
+    /// Calls a method of the current component with a given admin badge.
+    ///
+    /// # Arguments
+    /// * `method_name`: name of the method.
+    /// * `admin_badge`: reference name of the resource to use as an admin badge.
+    /// * `args`: environment arguments to call the method.
+    pub fn call_method_with_badge<E: EnvRef>(
+        &mut self,
+        method_name: &str,
+        admin_badge: E,
+        args: Vec<Box<dyn EnvironmentEncode>>
+    ) -> TransactionReceipt {
+        self.custom_method_call(method_name, args)
+            .with_badge(admin_badge)
+            .execute()
+    }
+
     /// Calls faucet with the current account.
     pub fn call_faucet(&mut self) {
         let caller = self.current_account().clone();
@@ -348,7 +365,7 @@ impl TestEngine {
     pub fn get_resource<E: EnvRef>(&self, name: E) -> ResourceAddress {
         match self.resources.get(&name.format()) {
             None => panic!("There is no resource with name {}", name.format()),
-            Some(address) => address.clone(),
+            Some(resource) => resource.clone(),
         }
     }
 
@@ -404,6 +421,12 @@ impl TestEngine {
             self.update_resources_from_result(commit_result);
         }
         receipt
+    }
+
+    pub(crate) fn ids_owned_at_address(&mut self, resource: ResourceAddress) -> Vec<NonFungibleLocalId>{
+        let account = self.current_account().address().clone();
+        let ids = self.engine_interface.nft_ids(account, resource);
+        ids
     }
 
     fn update_resources_from_result(&mut self, result: &CommitResult) {

@@ -1,11 +1,8 @@
+use std::collections::BTreeSet;
 use std::vec::Vec;
 
 use radix_engine::transaction::TransactionReceipt;
-use radix_engine::types::{
-    ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH,
-    MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind,
-    NetworkDefinition, PackageAddress,
-};
+use radix_engine::types::{ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind, NetworkDefinition, NonFungibleLocalId, PackageAddress, ResourceAddress};
 use transaction::builder::ManifestBuilder;
 use transaction::manifest::decompiler::ManifestObjectNames;
 use transaction::manifest::dumper::dump_manifest_to_file_system;
@@ -25,6 +22,7 @@ pub struct CallBuilder<'a> {
     deposit_destination: ComponentAddress,
     test_engine: &'a mut TestEngine,
     output_manifest: Option<(String, String)>,
+    admin_badge: Option<(ResourceAddress, Option<BTreeSet<NonFungibleLocalId>>)>,
     object_names: ManifestObjectNames,
     with_trace: bool,
 }
@@ -33,6 +31,7 @@ impl<'a> CallBuilder<'a> {
     pub fn execute(mut self) -> TransactionReceipt {
         self.write_lock();
         self.write_deposit();
+        self.write_badge();
         self.output_manifest();
 
         self.test_engine
@@ -59,8 +58,27 @@ impl<'a> CallBuilder<'a> {
         self
     }
 
+    /// Outputs the manifest to the given path.
+    ///
+    /// # Arguments
+    /// * `path`: path where to output the manifest.
+    /// * `name`: name of the outputted file.
     pub fn output(mut self, path: impl ToString, name: impl ToString) -> Self {
         self.output_manifest = Some((path.to_string(), name.to_string()));
+        self
+    }
+
+    /// Calls the method with the given admin badge.
+    ///
+    /// # Arguments
+    /// * `badge_name` : reference name of the resource used as admin badge.
+    pub fn with_badge<E: EnvRef>(mut self, badge_name: E) -> Self{
+        let resource = self.test_engine.get_resource(badge_name);
+        let ids_tree: Option<BTreeSet<NonFungibleLocalId>> = if resource.is_fungible() { None } else {
+            Some(self.test_engine.ids_owned_at_address(resource.clone()).into_iter().collect())
+        };
+
+        self.admin_badge = Some((resource, ids_tree));
         self
     }
 
@@ -115,6 +133,7 @@ impl<'a> CallBuilder<'a> {
             deposit_destination,
             output_manifest: None,
             object_names,
+            admin_badge: None,
             with_trace: false,
         }
     }
@@ -163,6 +182,7 @@ impl<'a> CallBuilder<'a> {
             deposit_destination,
             output_manifest: None,
             object_names,
+            admin_badge: None,
             with_trace: false,
         }
     }
@@ -186,6 +206,33 @@ impl<'a> CallBuilder<'a> {
                 method_name: "deposit_batch".to_string(),
                 args: manifest_args!(ManifestExpression::EntireWorktop).resolve(),
             });
+    }
+    fn write_badge(&mut self) {
+        match &self.admin_badge {
+           None => {},
+            Some((badge, opt_ids)) => {
+
+                if badge.is_fungible() {
+                    self.manifest.instructions.insert(
+                        1,
+                        transaction::model::InstructionV1::CallMethod {
+                            address: DynamicGlobalAddress::from(self.caller.address().clone()),
+                            method_name: "create_proof_of_amount".to_string(),
+                            args: manifest_args!(badge.clone(), Decimal::one()).resolve()
+                        }
+                    )
+                }
+                else {
+                    self.manifest.instructions.insert(
+                        1,
+                        transaction::model::InstructionV1::CallMethod {
+                            address: DynamicGlobalAddress::from(self.caller.address().clone()),
+                            method_name: "create_proof_of_non_fungibles".to_string(),
+                            args: manifest_args!(badge.clone(), opt_ids.clone().unwrap()).resolve()
+                        });
+                }
+            }
+        }
     }
 
     fn output_manifest(&self) {
