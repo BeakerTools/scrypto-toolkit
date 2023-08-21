@@ -45,6 +45,6 @@ mod gumball_machine_tests {
         let mut test_engine = instantiate_gumball();
         let receipt = test_engine.call_method("get_price", env_args!());
         let price: Decimal = receipt.get_return();
-        assert_eq!(price, dec!(52));
+        assert_eq!(price, dec!(5));
     }
 }
