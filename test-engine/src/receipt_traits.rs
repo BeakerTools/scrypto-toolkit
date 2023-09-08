@@ -11,7 +11,7 @@ impl Outcome for TransactionReceipt {
     /// Asserts that the transaction succeeded.
     /// Panics if the transaction was rejected, aborted or failed.
     fn assert_is_success(self) -> Self {
-        match &self.transaction_result {
+        match &self.result {
             TransactionResult::Commit(commit) => match &commit.outcome {
                 TransactionOutcome::Success(_) => self,
                 TransactionOutcome::Failure(failure) => {
@@ -19,7 +19,7 @@ impl Outcome for TransactionReceipt {
                 }
             },
             TransactionResult::Reject(reject) => {
-                panic!("Transaction rejected with: {}", reject.error);
+                panic!("Transaction rejected with: {}", reject.reason);
             }
             TransactionResult::Abort(abort) => {
                 panic!("Transaction aborted with: {}", abort.reason);
@@ -33,7 +33,7 @@ impl Outcome for TransactionReceipt {
     /// # Arguments
     /// * `error` : Expected error message.
     fn assert_failed_with(self, error: &str) -> Self {
-        match &self.transaction_result {
+        match &self.result {
             TransactionResult::Commit(commit) => match &commit.outcome {
                 TransactionOutcome::Success(_) => {
                     panic!("Transaction succeeded !");
@@ -52,7 +52,7 @@ impl Outcome for TransactionReceipt {
                 }
             },
             TransactionResult::Reject(reject) => {
-                panic!("Transaction rejected with: {}", reject.error);
+                panic!("Transaction rejected with: {}", reject.reason);
             }
             TransactionResult::Abort(abort) => {
                 panic!("Transaction aborted with: {}", abort.reason);
@@ -71,7 +71,7 @@ where
 {
     /// Returns the method's return from a receipt.
     fn get_return(&self) -> T {
-        match &self.transaction_result {
+        match &self.result {
             TransactionResult::Commit(commit) => match &commit.outcome {
                 TransactionOutcome::Success(output) => T::from(output.clone()),
                 TransactionOutcome::Failure(failure) => {
@@ -79,7 +79,7 @@ where
                 }
             },
             TransactionResult::Reject(reject) => {
-                panic!("Transaction rejected with: {}", reject.error);
+                panic!("Transaction rejected with: {}", reject.reason);
             }
             TransactionResult::Abort(abort) => {
                 panic!("Transaction abort with: {}", abort.reason);

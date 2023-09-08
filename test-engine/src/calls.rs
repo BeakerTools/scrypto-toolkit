@@ -2,9 +2,9 @@ use std::vec::Vec;
 
 use radix_engine::transaction::TransactionReceipt;
 use radix_engine::types::{
-    ComponentAddress, Decimal, Encoder, FAUCET, manifest_decode, MANIFEST_SBOR_V1_MAX_DEPTH,
-    MANIFEST_SBOR_V1_PAYLOAD_PREFIX, ManifestArgs, ManifestEncoder, ManifestExpression, ManifestValueKind,
-    NetworkDefinition, PackageAddress,
+    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
+    ManifestExpression, ManifestValueKind, PackageAddress, FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH,
+    MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
 };
 use transaction::builder::ManifestBuilder;
 use transaction::manifest::decompiler::ManifestObjectNames;
@@ -193,11 +193,11 @@ impl<'a> CallBuilder<'a> {
             None => {}
             Some((path, name)) => {
                 match dump_manifest_to_file_system(
-                    &self.manifest,
                     self.object_names.clone(),
+                    &self.manifest,
                     path,
                     Some(name),
-                    &NetworkDefinition::kisharnet(),
+                    &self.test_engine.network(),
                 ) {
                     Ok(_) => {}
                     Err(error) => {
