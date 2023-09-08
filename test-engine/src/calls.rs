@@ -4,7 +4,7 @@ use std::vec::Vec;
 use radix_engine::transaction::TransactionReceipt;
 use radix_engine::types::{
     manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
-    ManifestExpression, ManifestValueKind, NetworkDefinition, NonFungibleLocalId, PackageAddress,
+    ManifestExpression, ManifestValueKind, NonFungibleLocalId, PackageAddress,
     ResourceAddress, FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
 };
 use transaction::builder::ManifestBuilder;
