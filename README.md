@@ -11,4 +11,4 @@ At the moment, these include:
 - [ ] More maths functions
 
 ## Request feature
-To request a feature, submit a ticket.
+To request a feature, submit an issue.
