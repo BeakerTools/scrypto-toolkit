@@ -32,10 +32,12 @@ mod gumball_machine_tests {
     #[test]
     fn test_buy_gumball_fail() {
         let mut test_engine = instantiate_gumball();
-        test_engine.call_method(
-            "buy_gumball",
-            env_args!(Environment::FungibleBucket("XRD", Decimal::one())),
-        ).assert_failed_with("");
+        test_engine
+            .call_method(
+                "buy_gumball",
+                env_args!(Environment::FungibleBucket("XRD", Decimal::one())),
+            )
+            .assert_failed_with("");
         let amount_owned = test_engine.current_balance("GUM");
         assert_eq!(amount_owned, Decimal::zero())
     }

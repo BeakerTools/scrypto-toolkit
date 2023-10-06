@@ -276,7 +276,7 @@ impl TestEngine {
     /// Moves to next epoch.
     pub fn next_epoch(&mut self) {
         let epoch = self.engine_interface.get_epoch();
-        self.engine_interface.set_epoch(epoch.next());
+        self.engine_interface.set_epoch(epoch.next().unwrap());
     }
 
     /// Advances epochs by the given amount.
@@ -285,7 +285,7 @@ impl TestEngine {
     /// * `epochs`: amount of epochs to jump to.
     pub fn jump_epochs(&mut self, epochs: u64) {
         let epoch = self.engine_interface.get_epoch();
-        self.engine_interface.set_epoch(epoch.after(epochs));
+        self.engine_interface.set_epoch(epoch.after(epochs).unwrap());
     }
 
     /// Jumps back epochs by the given amount.
