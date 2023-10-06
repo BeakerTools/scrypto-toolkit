@@ -12,18 +12,18 @@ mod hello {
         // This is a function, and can be called directly on the blueprint once deployed
         pub fn instantiate_hello() -> Global<Hello> {
             // Create a new token called "HelloToken," with a fixed supply of 1000, and put that supply into a bucket
-            let my_bucket: Bucket = ResourceBuilder::new_fungible(OwnerRole::None)
+            let my_bucket = ResourceBuilder::new_fungible(OwnerRole::None)
                 .metadata(metadata!(
                     init {
-                        "name" => "Hello Token".to_owned(), locked;
-                        "symbol" => "HT".to_owned(), locked;
+                        "name" => "Hello Token", locked;
+                        "symbol" => "HT", locked;
                     }
                 ))
                 .mint_initial_supply(1000);
 
             // Instantiate a Hello component, populating its vault with our supply of 1000 HelloToken
             Self {
-                sample_vault: Vault::with_bucket(my_bucket),
+                sample_vault: Vault::with_bucket(my_bucket.into()),
             }
             .instantiate()
             .prepare_to_globalize(OwnerRole::None)

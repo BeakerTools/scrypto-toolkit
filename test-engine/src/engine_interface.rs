@@ -1,23 +1,23 @@
 use std::path::Path;
 
-use radix_engine::transaction::{ExecutionConfig, FeeReserveConfig, TransactionReceipt};
+use radix_engine::transaction::{CostingParameters, ExecutionConfig, TransactionReceipt};
 use radix_engine::types::{
     ComponentAddress, Decimal, Epoch, GlobalAddress, NonFungibleLocalId, PackageAddress,
     ResourceAddress, Secp256k1PublicKey,
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
-use scrypto_unit::TestRunner;
+use scrypto_unit::{DefaultTestRunner, TestRunnerBuilder};
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::{Secp256k1PrivateKey, TestTransaction};
 
 pub struct EngineInterface {
-    test_runner: TestRunner,
+    test_runner: DefaultTestRunner,
 }
 
 impl EngineInterface {
     pub fn new() -> Self {
         Self {
-            test_runner: TestRunner::builder().without_trace().build(),
+            test_runner: TestRunnerBuilder::new().without_trace().build(),
         }
     }
 
@@ -43,7 +43,7 @@ impl EngineInterface {
                 .prepare()
                 .expect("expected transaction to be preparable")
                 .get_executable(initial_proofs.into_iter().collect()),
-            FeeReserveConfig::default(),
+            CostingParameters::default(),
             exec_config,
         )
     }
@@ -63,26 +63,14 @@ impl EngineInterface {
         let account_vault = account_vault.get(0);
         account_vault.map_or(vec![], |vault_id| {
             match self.test_runner.inspect_non_fungible_vault(*vault_id) {
-                None => {
-                    vec![]
-                }
-                Some((_amount, id)) => match id {
-                    None => {
-                        vec![]
-                    }
-                    Some(id) => {
-                        vec![id]
-                    }
-                },
+                None => vec![],
+                Some((_amount, ids)) => ids.collect(),
             }
         })
     }
 
     pub fn balance(&mut self, account: ComponentAddress, resource: ResourceAddress) -> Decimal {
-        match self.test_runner.account_balance(account, resource) {
-            None => Decimal::zero(),
-            Some(amount) => amount,
-        }
+        self.test_runner.get_component_balance(account, resource)
     }
 
     pub fn new_fungible(

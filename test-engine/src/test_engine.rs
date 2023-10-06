@@ -7,6 +7,7 @@ use radix_engine::types::{
 };
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;
+use transaction::prelude::NetworkDefinition;
 
 use crate::account::Account;
 use crate::calls::CallBuilder;
@@ -120,12 +121,14 @@ impl TestEngine {
                 .execute();
                 let receipt = receipt.assert_is_success();
 
-                if let TransactionResult::Commit(commit) = &receipt.transaction_result {
-                    match commit.new_component_addresses().get(0) {
+                if let TransactionResult::Commit(commit) = &receipt.result {
+                    let components: Vec<&ComponentAddress> =
+                        commit.new_component_addresses().iter().collect();
+                    match components.get(0) {
                         None => {}
                         Some(component) => {
                             self.components
-                                .insert(component_name.format(), component.clone());
+                                .insert(component_name.format(), component.clone().clone());
                         }
                     }
 
@@ -134,8 +137,8 @@ impl TestEngine {
                     };
 
                     self.update_resources_from_result(&commit);
-                } else if let TransactionResult::Reject(reject) = &receipt.transaction_result {
-                    panic!("{}", reject.error);
+                } else if let TransactionResult::Reject(reject) = &receipt.result {
+                    panic!("{}", reject.reason);
                 }
 
                 receipt
@@ -273,7 +276,7 @@ impl TestEngine {
     /// Moves to next epoch.
     pub fn next_epoch(&mut self) {
         let epoch = self.engine_interface.get_epoch();
-        self.engine_interface.set_epoch(epoch.next());
+        self.engine_interface.set_epoch(epoch.next().unwrap());
     }
 
     /// Advances epochs by the given amount.
@@ -282,7 +285,7 @@ impl TestEngine {
     /// * `epochs`: amount of epochs to jump to.
     pub fn jump_epochs(&mut self, epochs: u64) {
         let epoch = self.engine_interface.get_epoch();
-        self.engine_interface.set_epoch(epoch.after(epochs));
+        self.engine_interface.set_epoch(epoch.after(epochs).unwrap());
     }
 
     /// Jumps back epochs by the given amount.
@@ -417,10 +420,14 @@ impl TestEngine {
         let receipt = self
             .engine_interface
             .execute_manifest(manifest, with_trace, initial_proofs);
-        if let TransactionResult::Commit(commit_result) = &receipt.transaction_result {
+        if let TransactionResult::Commit(commit_result) = &receipt.result {
             self.update_resources_from_result(commit_result);
         }
         receipt
+    }
+
+    pub(crate) fn network(&self) -> NetworkDefinition {
+        NetworkDefinition::zabanet()
     }
 
     pub(crate) fn ids_owned_at_address(

@@ -1,11 +1,10 @@
 use crate::exponential::Exponential;
-use radix_engine::types::{BnumI256, BnumU256, Decimal};
+use radix_engine::types::{Decimal, I192, U192};
 
-pub const LN_2: Decimal = Decimal(BnumI256::from_digits([693147180559945309, 0, 0, 0]));
-pub const LN_10: Decimal = Decimal(BnumI256::from_digits([2302585092994045684, 0, 0, 0]));
-// Next power of two for the BunmU256 representation of the Decimal 1
-pub const NEXT_POWER_OF_TWO_FOR_ONE: BnumU256 =
-    BnumU256::from_digits([1152921504606846976, 0, 0, 0]);
+pub const LN_2: Decimal = Decimal(I192::from_digits([693147180559945309, 0, 0]));
+pub const LN_10: Decimal = Decimal(I192::from_digits([2302585092994045684, 0, 0]));
+// Next power of two for the U192 representation of the Decimal 1
+pub const NEXT_POWER_OF_TWO_FOR_ONE: U192 = U192::from_digits([1152921504606846976, 0, 0]);
 
 pub trait Logarithm {
     fn ln(self) -> Self;
@@ -34,10 +33,10 @@ impl Logarithm for Decimal {
             // Because, exp overflows very quickly, we rewrite y = 2^n(1 + x) with 0=< x <1.
             // This is possible because we make sure that y >= 1
             // Therefore, ln(y) = ln(1+x) + n*ln(2)
-            let self_256 = BnumU256::try_from(self.0).unwrap();
+            let self_192 = U192::try_from(self.0).unwrap();
 
-            let pow_two = self_256.next_power_of_two() / NEXT_POWER_OF_TWO_FOR_ONE;
-            let n = if pow_two == BnumU256::ONE {
+            let pow_two = self_192.next_power_of_two() / NEXT_POWER_OF_TWO_FOR_ONE;
+            let n = if pow_two == U192::ONE {
                 0
             } else {
                 pow_two.0.ilog2() as u32
@@ -80,7 +79,7 @@ mod test_ln {
     use crate::exponential::Exponential;
     use crate::logarithm::{Logarithm, LN_2};
     use crate::RELATIVE_PRECISION;
-    use radix_engine::types::{dec, BnumI256, Decimal};
+    use radix_engine::types::{dec, Decimal, I192};
 
     #[test]
     #[should_panic]
@@ -96,39 +95,47 @@ mod test_ln {
 
     #[test]
     fn test_ln_1() {
-        assert!(Decimal::ONE.ln().abs() <= RELATIVE_PRECISION)
+        assert!(Decimal::ONE.ln().checked_abs().unwrap() <= RELATIVE_PRECISION)
     }
 
     #[test]
     fn test_ln_0_5() {
-        let rel_prec = (dec!("0.5").ln() + LN_2).abs() / LN_2;
+        let rel_prec = (dec!("0.5").ln() + LN_2).checked_abs().unwrap() / LN_2;
         assert!(rel_prec < RELATIVE_PRECISION)
     }
 
     #[test]
     fn test_ln_smallest_dec() {
-        let small = Decimal(BnumI256::ONE);
-        let rel_prec =
-            (small.ln() + dec!("41.446531673892822312")).abs() / dec!("41.446531673892822312");
+        let small = Decimal(I192::ONE);
+        let rel_prec = (small.ln() + dec!("41.446531673892822312"))
+            .checked_abs()
+            .unwrap()
+            / dec!("41.446531673892822312");
         assert!(rel_prec < RELATIVE_PRECISION)
     }
 
     #[test]
     fn test_ln_12() {
-        let rel_prec =
-            (dec!(12).ln() - dec!("2.484906649788000310")).abs() / dec!("2.484906649788000310");
+        let rel_prec = (dec!(12).ln() - dec!("2.484906649788000310"))
+            .checked_abs()
+            .unwrap()
+            / dec!("2.484906649788000310");
         assert!(rel_prec < RELATIVE_PRECISION)
     }
 
     #[test]
     fn test_ln_e() {
-        let rel_prec = (Decimal::ONE.exp().ln() - Decimal::ONE).abs();
+        let rel_prec = (Decimal::ONE.exp().ln() - Decimal::ONE)
+            .checked_abs()
+            .unwrap();
         assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_ln_max() {
-        let rel_prec = (dec!("135.305999368893231589") - Decimal::MAX.ln()).abs()
+        let rel_prec = (dec!("90.944579813056731786") - Decimal::MAX.ln())
+            .checked_abs()
+            .unwrap()
             / dec!("135.305999368893231589");
         assert!(rel_prec < RELATIVE_PRECISION);
     }

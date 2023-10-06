@@ -13,7 +13,7 @@ mod radiswap_tests {
         test_engine.new_component(
             "radiswap",
             "Radiswap",
-            "instantiate_pool",
+            "new",
             env_args!(
                 OwnerRole::None,
                 Environment::Resource("usd"),

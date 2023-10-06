@@ -1,9 +1,8 @@
-use radix_engine::types::{BnumI256, BnumI384, Decimal};
+use radix_engine::types::{Decimal, I192, I256};
 
-pub const SMALLEST_NON_ZERO: Decimal = Decimal(BnumI256::from_digits([
+pub const SMALLEST_NON_ZERO: Decimal = Decimal(I192::from_digits([
     13893700547235832536,
     18446744073709551613,
-    18446744073709551615,
     18446744073709551615,
 ]));
 
@@ -23,18 +22,18 @@ impl Exponential for Decimal {
                 Decimal::one() / ((-self).exp())
             }
         } else {
-            let self_384 = BnumI384::from(self.0);
-            let one_384 = BnumI384::from(Decimal::ONE.0);
+            let self_384 = I256::from(self.0);
+            let one_384 = I256::from(Decimal::ONE.0);
             let mut result = one_384;
             let mut added_term = self_384.clone();
-            let mut counter = BnumI384::ONE;
-            while added_term != BnumI384::ZERO {
+            let mut counter = I256::ONE;
+            while added_term != I256::ZERO {
                 result += added_term;
-                counter += BnumI384::ONE;
+                counter += I256::ONE;
                 added_term = added_term * (self_384 / counter);
                 added_term /= one_384;
             }
-            Decimal(BnumI256::try_from(result).expect("Overflow"))
+            Decimal(I192::try_from(result).expect("Overflow"))
         };
     }
 }
@@ -43,7 +42,7 @@ impl Exponential for Decimal {
 mod test_exp {
     use crate::exponential::{Exponential, SMALLEST_NON_ZERO};
     use crate::RELATIVE_PRECISION;
-    use radix_engine::types::{dec, BnumI256, Decimal};
+    use radix_engine::types::{dec, Decimal, I192};
 
     #[test]
     fn test_zero() {
@@ -52,42 +51,48 @@ mod test_exp {
 
     #[test]
     fn test_one() {
-        let rel_prec = (dec!("2.718281828459045235") - Decimal::one().exp()).abs()
+        let rel_prec = (dec!("2.718281828459045235") - Decimal::one().exp())
+            .checked_abs()
+            .unwrap()
             / dec!("2.718281828459045235");
         assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_neg_one() {
-        let rel_prec = (dec!("0.367879441171442321") - (-Decimal::one()).exp()).abs()
+        let rel_prec = (dec!("0.367879441171442321") - (-Decimal::one()).exp())
+            .checked_abs()
+            .unwrap()
             / dec!("0.367879441171442321");
         assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_smallest_non_zero() {
-        assert_eq!(Decimal(BnumI256::ONE), SMALLEST_NON_ZERO.exp());
+        assert_eq!(Decimal(I192::ONE), SMALLEST_NON_ZERO.exp());
     }
 
     #[test]
     fn test_biggest_non_overflow() {
-        let true_val =
-            dec!("57896044618658097711785492504343953926634992332820282019728.792003956564819967");
-        let rel_prec = (true_val - dec!("135.305999368893231589").exp()).abs() / true_val;
+        let true_val = Decimal::MAX;
+        let rel_prec = (true_val - dec!("90.944579813056731786").exp())
+            .checked_abs()
+            .unwrap()
+            / true_val;
         assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
     fn test_42() {
         let true_val = dec!("1739274941520501037.39808957450998605");
-        let rel_prec = (true_val - dec!(42).exp()).abs() / true_val;
+        let rel_prec = (true_val - dec!(42).exp()).checked_abs().unwrap() / true_val;
         assert!(rel_prec < RELATIVE_PRECISION);
     }
 
     #[test]
-    fn test_100() {
-        let true_val = dec!("26881171418161354484126255515800135873611118.773741922415191608");
-        let rel_prec = (true_val - dec!(100).exp()).abs() / true_val;
+    fn test_57() {
+        let true_val = dec!("5685719999335932222640348.820633253303372158");
+        let rel_prec = (true_val - dec!(57).exp()).checked_abs().unwrap() / true_val;
         assert!(rel_prec < RELATIVE_PRECISION)
     }
 }
