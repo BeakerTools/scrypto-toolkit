@@ -1,4 +1,5 @@
 use radix_engine::types::Secp256k1PublicKey;
+use radix_engine_common::crypto::PublicKey;
 use radix_engine_interface::blueprints::resource::FromPublicKey;
 use radix_engine_interface::prelude::NonFungibleGlobalId;
 use radix_engine_interface::types::ComponentAddress;
@@ -26,5 +27,9 @@ impl Account {
 
     pub fn proof(&self) -> NonFungibleGlobalId {
         NonFungibleGlobalId::from_public_key(&self.public_key)
+    }
+
+    pub fn public_key(&self) -> PublicKey {
+        PublicKey::from(self.public_key)
     }
 }

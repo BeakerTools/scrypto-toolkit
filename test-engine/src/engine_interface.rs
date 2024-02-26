@@ -1,14 +1,30 @@
 use std::path::Path;
 
+use radix_engine::prelude::{btreeset, dec};
 use radix_engine::transaction::{CostingParameters, ExecutionConfig, TransactionReceipt};
 use radix_engine::types::{
-    ComponentAddress, Decimal, Epoch, GlobalAddress, NonFungibleLocalId, PackageAddress,
+    ComponentAddress, Decimal, Encoder, Epoch, GlobalAddress, NonFungibleLocalId, PackageAddress,
     ResourceAddress, Secp256k1PublicKey,
 };
-use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
+use radix_engine_common::network::NetworkDefinition;
+use radix_engine_common::prelude::{
+    AddressBech32Decoder, ManifestAddressReservation, ManifestExpression, RESOURCE_PACKAGE,
+};
+use radix_engine_common::to_manifest_value_and_unwrap;
+use radix_engine_interface::prelude::{
+    BlueprintId, FromPublicKey, FungibleResourceManagerCreateWithInitialSupplyManifestInput,
+    FungibleResourceRoles, MetadataValue, NonFungibleGlobalId, OwnerRole,
+    FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT,
+    FUNGIBLE_RESOURCE_MANAGER_CREATE_WITH_INITIAL_SUPPLY_IDENT,
+};
 use scrypto_unit::{DefaultTestRunner, TestRunnerBuilder};
-use transaction::model::TransactionManifestV1;
-use transaction::prelude::{Secp256k1PrivateKey, TestTransaction};
+use transaction::model::{InstructionV1, TransactionManifestV1};
+use transaction::prelude::{
+    DynamicGlobalAddress, PreAllocatedAddress, Secp256k1PrivateKey, TestTransaction,
+};
+
+use crate::account::Account;
+use crate::manifest_args;
 
 pub struct EngineInterface {
     test_runner: DefaultTestRunner,
@@ -88,5 +104,66 @@ impl EngineInterface {
 
     pub fn get_epoch(&mut self) -> Epoch {
         self.test_runner.get_current_epoch()
+    }
+
+    pub fn create_pre_allocated_token(
+        &mut self,
+        address: &str,
+        initial_supply: Decimal,
+        network_definition: NetworkDefinition,
+        default_account: &Account,
+    ) -> ResourceAddress {
+        let dec = AddressBech32Decoder::new(&network_definition);
+        let mut pre_allocated_addresses: Vec<PreAllocatedAddress> = Vec::new();
+
+        let resource_addr: GlobalAddress = GlobalAddress::try_from_bech32(&dec, address).unwrap();
+
+        pre_allocated_addresses.push(
+            (
+                BlueprintId {
+                    package_address: RESOURCE_PACKAGE,
+                    blueprint_name: FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT.to_string(),
+                },
+                resource_addr,
+            )
+                .into(),
+        );
+
+        let receipt = self
+            .test_runner
+            .execute_system_transaction_with_preallocated_addresses(
+                vec![
+                    InstructionV1::CallFunction {
+                        package_address: RESOURCE_PACKAGE.into(),
+                        blueprint_name: FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT.to_string(),
+                        function_name: FUNGIBLE_RESOURCE_MANAGER_CREATE_WITH_INITIAL_SUPPLY_IDENT
+                            .to_string(),
+                        args: to_manifest_value_and_unwrap!(
+                            &FungibleResourceManagerCreateWithInitialSupplyManifestInput {
+                                owner_role: OwnerRole::None,
+                                divisibility: 18,
+                                track_total_supply: false,
+                                metadata: Default::default(),
+                                resource_roles: FungibleResourceRoles::default(),
+                                initial_supply: dec!(10),
+                                address_reservation: Some(ManifestAddressReservation(0)),
+                            }
+                        ),
+                    },
+                    InstructionV1::CallMethod {
+                        address: DynamicGlobalAddress::Static(GlobalAddress::new_or_panic(
+                            default_account.address().clone().into(),
+                        )),
+                        method_name: "deposit_batch".to_string(),
+                        args: manifest_args!(ManifestExpression::EntireWorktop).into(),
+                    },
+                ],
+                pre_allocated_addresses,
+                btreeset!(NonFungibleGlobalId::from_public_key(
+                    &default_account.public_key()
+                )),
+            );
+
+        receipt.expect_commit(true).new_resource_addresses()[0]
     }
 }

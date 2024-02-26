@@ -227,6 +227,39 @@ impl TestEngine {
         }
     }
 
+    /// Creates a new token with a given resource address.
+    ///
+    /// # Arguments
+    /// * `token_name`: name that will be used to reference the token.
+    /// * `initial_distribution`: initial distribution of the token.
+    /// * `resource_address`: address of the resource.
+    /// * `network`: network on which the resource has the given address.
+    pub fn add_token<E: EnvRef, D: TryInto<Decimal>>(
+        &mut self,
+        token_name: E,
+        initial_supply: D,
+        resource_address: &str,
+        network: NetworkDefinition,
+    ) where
+        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+    {
+        match self.resources.get(&token_name.format()) {
+            Some(_) => {
+                panic!("Token with name {} already exists", token_name.format());
+            }
+            None => {
+                let account = self.current_account().clone();
+                let token_address = self.engine_interface.create_pre_allocated_token(
+                    resource_address,
+                    initial_supply.try_into().unwrap(),
+                    network,
+                    &account,
+                );
+                self.resources.insert(token_name.format(), token_address);
+            }
+        }
+    }
+
     /// Returns the balance of the current account in the given resource.
     ///
     /// # Arguments
@@ -285,7 +318,8 @@ impl TestEngine {
     /// * `epochs`: amount of epochs to jump to.
     pub fn jump_epochs(&mut self, epochs: u64) {
         let epoch = self.engine_interface.get_epoch();
-        self.engine_interface.set_epoch(epoch.after(epochs).unwrap());
+        self.engine_interface
+            .set_epoch(epoch.after(epochs).unwrap());
     }
 
     /// Jumps back epochs by the given amount.
