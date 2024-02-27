@@ -66,10 +66,29 @@ impl TestEngine {
                 panic!("A package with name {} already exists", name.format());
             }
             None => {
-                self.packages
-                    .insert(name.format(), self.engine_interface.publish_package(path));
-                if self.current_package.is_none() {
-                    self.current_package = Some(name.format());
+                let receipt = self.engine_interface.publish_package(path);
+                match receipt.result {
+                    TransactionResult::Commit(commit) => {
+                        self.packages
+                            .insert(name.format(), commit.new_package_addresses()[0]);
+                        if self.current_package.is_none() {
+                            self.current_package = Some(name.format());
+                        }
+                    }
+                    TransactionResult::Reject(reject) => {
+                        panic!(
+                            "Could not publish package {}. Transaction was rejected with error: {}",
+                            name.format(),
+                            reject.reason.format()
+                        );
+                    }
+                    TransactionResult::Abort(abort) => {
+                        panic!(
+                            "Could not publish package {}. Transaction was aborted with error: {}",
+                            name.format(),
+                            abort.reason.format()
+                        );
+                    }
                 }
             }
         }
@@ -102,48 +121,30 @@ impl TestEngine {
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        match self.components.get(&component_name.format()) {
-            Some(_) => panic!(
-                "A component with name {} already exists",
-                component_name.format()
-            ),
-            None => {
-                let caller = self.current_account().clone();
-                let package = self.current_package().clone();
-                let receipt = CallBuilder::call_function(
-                    self,
-                    caller,
-                    package,
-                    blueprint_name,
-                    instantiation_function,
-                    args,
-                )
-                .execute();
-                let receipt = receipt.assert_is_success();
+        self.create_component(
+            component_name,
+            blueprint_name,
+            instantiation_function,
+            args,
+            None::<E>,
+        )
+    }
 
-                if let TransactionResult::Commit(commit) = &receipt.result {
-                    let components: Vec<&ComponentAddress> =
-                        commit.new_component_addresses().iter().collect();
-                    match components.get(0) {
-                        None => {}
-                        Some(component) => {
-                            self.components
-                                .insert(component_name.format(), component.clone().clone());
-                        }
-                    }
-
-                    if self.current_component.is_none() {
-                        self.current_component = Some(component_name.format())
-                    };
-
-                    self.update_resources_from_result(&commit);
-                } else if let TransactionResult::Reject(reject) = &receipt.result {
-                    panic!("{}", reject.reason);
-                }
-
-                receipt
-            }
-        }
+    pub fn new_component_with_badge<E1: EnvRef, E2: EnvRef>(
+        &mut self,
+        component_name: E1,
+        blueprint_name: &str,
+        instantiation_function: &str,
+        badge: E2,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        self.create_component(
+            component_name,
+            blueprint_name,
+            instantiation_function,
+            args,
+            Some(badge),
+        )
     }
 
     /// Calls a method of the current component.
@@ -461,7 +462,7 @@ impl TestEngine {
     }
 
     pub(crate) fn network(&self) -> NetworkDefinition {
-        NetworkDefinition::zabanet()
+        NetworkDefinition::simulator()
     }
 
     pub(crate) fn ids_owned_at_address(
@@ -471,6 +472,57 @@ impl TestEngine {
         let account = self.current_account().address().clone();
         let ids = self.engine_interface.nft_ids(account, resource);
         ids
+    }
+
+    fn create_component<E1: EnvRef, E2: EnvRef>(
+        &mut self,
+        component_name: E1,
+        blueprint_name: &str,
+        instantiation_function: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+        opt_badge: Option<E2>,
+    ) -> TransactionReceipt {
+        let caller = self.current_account().clone();
+        let package = self.current_package().clone();
+        let mut partial_call = CallBuilder::call_function(
+            self,
+            caller,
+            package,
+            blueprint_name,
+            instantiation_function,
+            args,
+        );
+
+        match opt_badge {
+            Some(badge) => partial_call = partial_call.with_badge(badge),
+            None => {}
+        }
+
+        let receipt = partial_call.execute();
+
+        let receipt = receipt.assert_is_success();
+
+        if let TransactionResult::Commit(commit) = &receipt.result {
+            let components: Vec<&ComponentAddress> =
+                commit.new_component_addresses().iter().collect();
+            match components.get(0) {
+                None => {}
+                Some(component) => {
+                    self.components
+                        .insert(component_name.format(), component.clone().clone());
+                }
+            }
+
+            if self.current_component.is_none() {
+                self.current_component = Some(component_name.format())
+            };
+
+            self.update_resources_from_result(&commit);
+        } else if let TransactionResult::Reject(reject) = &receipt.result {
+            panic!("{}", reject.reason);
+        }
+
+        receipt
     }
 
     fn update_resources_from_result(&mut self, result: &CommitResult) {

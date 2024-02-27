@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use radix_engine::prelude::{btreeset, dec};
+use radix_engine::prelude::btreeset;
 use radix_engine::transaction::{CostingParameters, ExecutionConfig, TransactionReceipt};
 use radix_engine::types::{
-    ComponentAddress, Decimal, Encoder, Epoch, GlobalAddress, NonFungibleLocalId, PackageAddress,
-    ResourceAddress, Secp256k1PublicKey,
+    ComponentAddress, Decimal, Encoder, Epoch, GlobalAddress, NonFungibleLocalId, ResourceAddress,
+    Secp256k1PublicKey,
 };
 use radix_engine_common::network::NetworkDefinition;
 use radix_engine_common::prelude::{
@@ -37,8 +37,8 @@ impl EngineInterface {
         }
     }
 
-    pub fn publish_package<P: AsRef<Path>>(&mut self, package_dir: P) -> PackageAddress {
-        self.test_runner.compile_and_publish(package_dir)
+    pub fn publish_package<P: AsRef<Path>>(&mut self, package_dir: P) -> TransactionReceipt {
+        self.test_runner.try_publish_package(package_dir.as_ref())
     }
 
     pub fn new_account(&mut self) -> (Secp256k1PublicKey, Secp256k1PrivateKey, ComponentAddress) {
@@ -145,7 +145,7 @@ impl EngineInterface {
                                 track_total_supply: false,
                                 metadata: Default::default(),
                                 resource_roles: FungibleResourceRoles::default(),
-                                initial_supply: dec!(10),
+                                initial_supply,
                                 address_reservation: Some(ManifestAddressReservation(0)),
                             }
                         ),
