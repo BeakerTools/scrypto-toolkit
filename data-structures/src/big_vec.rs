@@ -33,6 +33,32 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
         }
     }
 
+    /// Creates a new empty `BigVec` with a specified initial capacity for each internal vector.
+    ///
+    /// This function initializes a new `BigVec` with the specified `elements_per_vec` as the initial capacity for each
+    /// internal vector. This can be useful for optimizing memory usage when the approximate number of elements per
+    /// vector is known in advance.
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity_per_vec` - The amount of elements to store in each internal vector.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// // Create a new BigVec with an initial capacity of 100 elements per vector
+    /// let big_vec = BigVec::with_elements_per_vec(100);
+    /// ```
+    pub fn with_capacity_per_vec(capacity_per_vec: usize) -> Self {
+        Self {
+            items_per_vec: capacity_per_vec,
+            vec_structure: Vec::new(),
+            vec_data: KeyValueStore::new(),
+        }
+    }
+
     /// Appends an element to the end of the `BigVec`.
     ///  # Examples
     ///
