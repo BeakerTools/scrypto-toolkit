@@ -190,9 +190,3 @@ To understand how to use this library, tests on some `scrypto-examples` packages
 - [Gumball Machine](tests/gumball_machine/unit_tests.rs)
 - [Radiswap](tests/radiswap/unit_tests.rs)
 - [NFT Marketplace](tests/nft_marketplace/unit_tests.rs)
-
-
-# TODO
-- [ ] Implement a better way to deal with Buckets/Proofs return.
-- [ ] Implement a way to query component states.
-- [ ] Deal with more transaction failures.
