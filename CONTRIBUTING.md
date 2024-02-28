@@ -4,8 +4,8 @@
 
 ### Reporting an issue
 
-* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/BeakerFi/scrypto-toolkit/issues).
-* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/BeakerFi/scrypto-toolkit/issues/new). Be sure to include:
+* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/BeakerDAO/scrypto-toolkit/issues).
+* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/BeakerDAO/scrypto-toolkit/issues/new). Be sure to include:
     * a **title**,
     * a **clear description**,
     * as much **relevant information** as possible,

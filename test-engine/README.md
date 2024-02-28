@@ -5,7 +5,7 @@ This library is a layer on top of the `scrypto-unit` library to make writing tes
 To use the library, add the following dev dependency to the `Cargo.toml` file
 ```
 [dev-dependencies]
-test-engine = { git = "https://github.com/BeakerFi/scrypto-toolkit", branch = "main"}
+test-engine = { git = "https://github.com/BeakerDAO/scrypto-toolkit", branch = "main"}
 ```
 
 # Features
