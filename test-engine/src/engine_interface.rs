@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use radix_engine::prelude::btreeset;
@@ -11,6 +12,7 @@ use radix_engine_common::prelude::{
     AddressBech32Decoder, ManifestAddressReservation, ManifestExpression, RESOURCE_PACKAGE,
 };
 use radix_engine_common::to_manifest_value_and_unwrap;
+use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{
     BlueprintId, FromPublicKey, FungibleResourceManagerCreateWithInitialSupplyManifestInput,
     FungibleResourceRoles, MetadataValue, NonFungibleGlobalId, OwnerRole,
@@ -18,6 +20,7 @@ use radix_engine_interface::prelude::{
     FUNGIBLE_RESOURCE_MANAGER_CREATE_WITH_INITIAL_SUPPLY_IDENT,
 };
 use scrypto_unit::{DefaultTestRunner, TestRunnerBuilder};
+use transaction::builder::ManifestBuilder;
 use transaction::model::{InstructionV1, TransactionManifestV1};
 use transaction::prelude::{
     DynamicGlobalAddress, PreAllocatedAddress, Secp256k1PrivateKey, TestTransaction,
@@ -39,6 +42,19 @@ impl EngineInterface {
 
     pub fn publish_package<P: AsRef<Path>>(&mut self, package_dir: P) -> TransactionReceipt {
         self.test_runner.try_publish_package(package_dir.as_ref())
+    }
+
+    pub fn publish_compiled_package(
+        &mut self,
+        code: Vec<u8>,
+        definition: PackageDefinition,
+    ) -> TransactionReceipt {
+        let manifest = ManifestBuilder::new()
+            .lock_fee_from_faucet()
+            .publish_package_advanced(None, code, definition, BTreeMap::new(), OwnerRole::None)
+            .build();
+
+        self.test_runner.execute_manifest(manifest, vec![])
     }
 
     pub fn new_account(&mut self) -> (Secp256k1PublicKey, Secp256k1PrivateKey, ComponentAddress) {

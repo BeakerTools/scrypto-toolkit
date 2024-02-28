@@ -5,6 +5,7 @@ use radix_engine::types::{
     dec, ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
     ResourceAddress, FAUCET, XRD,
 };
+use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::NetworkDefinition;
@@ -55,6 +56,18 @@ impl TestEngine {
         }
     }
 
+    /// Returns a new TestEngine with an initial global package.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the package.
+    /// * `package`: compiled package data.
+    pub fn with_package<E: EnvRef>(name: E, package: &(Vec<u8>, PackageDefinition)) -> Self {
+        let mut test_engine = Self::new();
+        test_engine.add_global_package(name, package);
+
+        test_engine
+    }
+
     /// Creates a new package from given path with a reference name.
     ///
     /// # Arguments
@@ -67,29 +80,30 @@ impl TestEngine {
             }
             None => {
                 let receipt = self.engine_interface.publish_package(path);
-                match receipt.result {
-                    TransactionResult::Commit(commit) => {
-                        self.packages
-                            .insert(name.format(), commit.new_package_addresses()[0]);
-                        if self.current_package.is_none() {
-                            self.current_package = Some(name.format());
-                        }
-                    }
-                    TransactionResult::Reject(reject) => {
-                        panic!(
-                            "Could not publish package {}. Transaction was rejected with error: {}",
-                            name.format(),
-                            reject.reason.format()
-                        );
-                    }
-                    TransactionResult::Abort(abort) => {
-                        panic!(
-                            "Could not publish package {}. Transaction was aborted with error: {}",
-                            name.format(),
-                            abort.reason.format()
-                        );
-                    }
-                }
+                self.create_package(name, receipt);
+            }
+        }
+    }
+
+    /// Adds a global package to the TestEngine.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the package.
+    /// * `package`: compiled package data.
+    pub fn add_global_package<E: EnvRef>(
+        &mut self,
+        name: E,
+        package: &(Vec<u8>, PackageDefinition),
+    ) {
+        match self.packages.get(&name.format()) {
+            Some(_) => {
+                panic!("A package with name {} already exists", name.format());
+            }
+            None => {
+                let receipt = self
+                    .engine_interface
+                    .publish_compiled_package(package.0.clone(), package.1.clone());
+                self.create_package(name, receipt);
             }
         }
     }
@@ -523,6 +537,32 @@ impl TestEngine {
         }
 
         receipt
+    }
+
+    fn create_package<E: EnvRef>(&mut self, name: E, receipt: TransactionReceipt) {
+        match receipt.result {
+            TransactionResult::Commit(commit) => {
+                self.packages
+                    .insert(name.format(), commit.new_package_addresses()[0]);
+                if self.current_package.is_none() {
+                    self.current_package = Some(name.format());
+                }
+            }
+            TransactionResult::Reject(reject) => {
+                panic!(
+                    "Could not publish package {}. Transaction was rejected with error: {}",
+                    name.format(),
+                    reject.reason.format()
+                );
+            }
+            TransactionResult::Abort(abort) => {
+                panic!(
+                    "Could not publish package {}. Transaction was aborted with error: {}",
+                    name.format(),
+                    abort.reason.format()
+                );
+            }
+        }
     }
 
     fn update_resources_from_result(&mut self, result: &CommitResult) {

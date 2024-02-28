@@ -49,7 +49,7 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     /// use data_structures::big_vec::BigVec;
     ///
     /// // Create a new BigVec with an initial capacity of 100 elements per vector
-    /// let big_vec = BigVec::with_elements_per_vec(100);
+    /// let big_vec: BigVec<i32> = BigVec::with_capacity_per_vec(100);
     /// ```
     pub fn with_capacity_per_vec(capacity_per_vec: usize) -> Self {
         Self {

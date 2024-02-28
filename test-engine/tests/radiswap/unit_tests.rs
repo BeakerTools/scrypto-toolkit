@@ -1,15 +1,16 @@
 mod radiswap_tests {
     use radix_engine::types::dec;
     use radix_engine_interface::blueprints::resource::OwnerRole;
-    use test_engine::env_args;
     use test_engine::environment::Environment;
     use test_engine::test_engine::TestEngine;
+    use test_engine::{env_args, global_package};
+
+    global_package!(RADISWAP_PACKAGE, "tests/radiswap/package");
 
     fn initialize() -> TestEngine {
-        let mut test_engine = TestEngine::new();
+        let mut test_engine = TestEngine::with_package("radiswap package", &RADISWAP_PACKAGE);
         test_engine.new_token("usd", dec!(100000));
         test_engine.new_token("btc", dec!(100));
-        test_engine.new_package("radiswap package", "tests/radiswap/package");
         test_engine.new_component(
             "radiswap",
             "Radiswap",

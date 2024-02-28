@@ -1,14 +1,15 @@
 mod nft_marketplace_tests {
     use radix_engine_interface::dec;
 
-    use test_engine::env_args;
     use test_engine::environment::Environment;
     use test_engine::receipt_traits::Outcome;
     use test_engine::test_engine::TestEngine;
+    use test_engine::{env_args, global_package};
+
+    global_package!(NFT_MARKETPLACE_PACKAGE, "tests/nft_marketplace/package");
 
     fn bootstrap() -> TestEngine {
-        let mut test_engine = TestEngine::new();
-        test_engine.new_package("nft marketplace", "tests/nft_marketplace/package");
+        let mut test_engine = TestEngine::with_package("nft marketplace", &NFT_MARKETPLACE_PACKAGE);
         test_engine.new_component("bootstrap", "Bootstrap", "bootstrap", env_args!());
         test_engine
     }
@@ -53,7 +54,7 @@ mod nft_marketplace_tests {
     }
 
     fn new_buyer(test_engine: &mut TestEngine, name: &str) {
-        test_engine.new_account(name.clone());
+        test_engine.new_account(name);
         test_engine.set_current_account(name);
         test_engine.call_faucet();
     }

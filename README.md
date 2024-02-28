@@ -15,8 +15,7 @@ To contribute please follow the [contribution guide](CONTRIBUTING.md). The follo
 - [ ] Implement more data structures
 
 ### Test Engine
-- [ ] Add a feature to manage static packages to avoid compilation of the same package multiple times during tests
-- [ ] Implement the `Environment` trait for objects implementing the `ScryptoSbor` trait
+- [ ] Implement the `EnvironmentEncode` trait for objects implementing the `ScryptoSbor` trait
 - [ ] Implement a better way to deal with Buckets/Proofs return.
 - [ ] Implement a nice way of querying component states.
 - [ ] Deal with more transaction failures.
