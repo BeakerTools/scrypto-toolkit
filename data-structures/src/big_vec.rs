@@ -1,3 +1,9 @@
+//! # BigVec
+//!
+//! is a data structure that represents a vector capable of dynamically growing without the overhead reallocating memory
+//! each time the vector resizes and without memory size limit.
+//! It internally manages a collection of smaller vectors, enabling efficient insertion and deletion operations.
+
 use radix_engine_common::prelude::{
     ScryptoCustomValueKind, ScryptoDecode, ScryptoDescribe, ScryptoEncode,
 };
@@ -18,6 +24,7 @@ pub struct BigVec<
 impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>>
     BigVec<V>
 {
+    /// Constructs a new, empty `BigVec<V>`.
     pub fn new() -> Self {
         Self {
             items_per_vec: 1_000_000 / size_of::<V>(),
@@ -26,6 +33,17 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
         }
     }
 
+    /// Appends an element to the end of the `BigVec`.
+    ///  # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    ///
+    /// big_vec.push(42);
+    /// assert_eq!(big_vec.len(), 1);
+    /// ```
     pub fn push(&mut self, element: V) {
         if self.vec_structure.len() == 0 {
             self.vec_structure.push(1);
@@ -43,6 +61,19 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
         }
     }
 
+    /// Removes the last element from the `BigVec` and returns it, or `None` if it is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    ///
+    /// big_vec.push(42);
+    /// assert_eq!(big_vec.pop(), Some(42));
+    /// assert_eq!(big_vec.pop(), None);
+    /// ```
     pub fn pop(&mut self) -> Option<V> {
         if self.vec_structure.len() == 0 {
             None
@@ -60,6 +91,26 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
         }
     }
 
+    /// Inserts an element at a specified index in the `BigVec`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the index is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    ///
+    /// big_vec.push(1);
+    /// big_vec.push(3);
+    /// big_vec.insert(1, 2);
+    /// assert_eq!(big_vec.pop(), Some(3));
+    /// assert_eq!(big_vec.pop(), Some(2));
+    /// assert_eq!(big_vec.pop(), Some(1));
+    /// ```
     pub fn insert(&mut self, mut index: usize, element: V) {
         let mut data_index: usize = 0;
         for items_nb in &self.vec_structure {
@@ -81,14 +132,53 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
         panic!("Trying to insert to index {index} which is out of bounds!")
     }
 
+    /// Returns the number of elements in the `BigVec`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    ///
+    /// big_vec.push(1);
+    /// big_vec.push(2);
+    /// assert_eq!(big_vec.len(), 2);
+    /// ```
     pub fn len(&self) -> usize {
         self.vec_structure.iter().sum()
     }
 
+    /// Returns `true` if the `BigVec` is empty, otherwise `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    ///
+    /// assert!(big_vec.is_empty());
+    /// big_vec.push(1);
+    /// assert!(!big_vec.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.vec_structure.is_empty()
     }
 
+    /// Returns the number of vectors internally managed by the `BigVec`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    ///
+    /// assert_eq!(big_vec.vec_nb(), 0);
+    /// big_vec.push(1);
+    /// assert_eq!(big_vec.vec_nb(), 1);
+    /// ```
     pub fn vec_nb(&self) -> usize {
         self.vec_structure.len()
     }
