@@ -17,9 +17,7 @@ macro_rules! env_args {
 #[macro_export]
 macro_rules! global_package {
     ($name:ident, $path:expr) => {
-        use lazy_static::lazy_static;
-        use radix_engine_interface::blueprints::package::PackageDefinition;
-        use scrypto_unit::PackagePublishingSource;
+        use test_engine::prelude::*;
 
         lazy_static! {
             static ref $name: (Vec<u8>, PackageDefinition) =

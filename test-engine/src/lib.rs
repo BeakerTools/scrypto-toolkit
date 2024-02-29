@@ -7,5 +7,6 @@ mod private_macros;
 pub mod calls;
 pub mod environment;
 pub mod macros;
+pub mod prelude;
 pub mod receipt_traits;
 pub mod test_engine;

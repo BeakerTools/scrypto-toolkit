@@ -16,7 +16,7 @@ use std::vec::IntoIter;
 pub struct BigVec<
     V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>,
 > {
-    items_per_vec: usize,
+    capacity_per_vec: usize,
     vec_structure: Vec<usize>,
     vec_data: KeyValueStore<usize, Vec<V>>,
 }
@@ -27,7 +27,7 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     /// Constructs a new, empty `BigVec<V>`.
     pub fn new() -> Self {
         Self {
-            items_per_vec: 1_000_000 / size_of::<V>(),
+            capacity_per_vec: 1_000_000 / size_of::<V>(),
             vec_structure: Vec::new(),
             vec_data: KeyValueStore::new(),
         }
@@ -53,7 +53,7 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     /// ```
     pub fn with_capacity_per_vec(capacity_per_vec: usize) -> Self {
         Self {
-            items_per_vec: capacity_per_vec,
+            capacity_per_vec: capacity_per_vec,
             vec_structure: Vec::new(),
             vec_data: KeyValueStore::new(),
         }
@@ -76,7 +76,7 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
             self.vec_data.insert(0, vec![element]);
         } else {
             let vec_length = self.vec_structure.len();
-            if self.vec_structure[vec_length - 1] == self.items_per_vec {
+            if self.vec_structure[vec_length - 1] == self.capacity_per_vec {
                 self.vec_structure.push(1);
                 self.vec_data.insert(vec_length - 1, vec![element]);
             } else {
@@ -207,6 +207,16 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     /// ```
     pub fn vec_nb(&self) -> usize {
         self.vec_structure.len()
+    }
+
+    /// Returns the internal structure of the `BigVec`.
+    pub fn structure(&self) -> &Vec<usize> {
+        &self.vec_structure
+    }
+
+    /// Returns the capacity per vec of the `BigVec`.
+    pub fn capacity_per_vec(&self) -> usize {
+        self.capacity_per_vec
     }
 }
 

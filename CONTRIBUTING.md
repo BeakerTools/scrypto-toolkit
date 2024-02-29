@@ -22,7 +22,7 @@ Development flow:
 
 * Feature - `feature/cool-bananas`
 * Development  - `develop`
-* 
+
 ## Conventions
 
 ### Code style
