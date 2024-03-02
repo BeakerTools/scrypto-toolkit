@@ -4,11 +4,7 @@
 //! each time the vector resizes and without memory size limit.
 //! It internally manages a collection of smaller vectors, enabling efficient insertion and deletion operations.
 
-use radix_engine_common::prelude::{
-    ScryptoCustomValueKind, ScryptoDecode, ScryptoDescribe, ScryptoEncode,
-};
-use sbor::Categorize;
-use scrypto::prelude::{KeyValueStore, ScryptoSbor};
+use scrypto::prelude::*;
 use std::mem::size_of;
 use std::vec::IntoIter;
 
@@ -78,7 +74,7 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
             let vec_length = self.vec_structure.len();
             if self.vec_structure[vec_length - 1] == self.capacity_per_vec {
                 self.vec_structure.push(1);
-                self.vec_data.insert(vec_length - 1, vec![element]);
+                self.vec_data.insert(vec_length, vec![element]);
             } else {
                 self.vec_structure[vec_length - 1] += 1;
                 let mut data = self.vec_data.get_mut(&(vec_length - 1)).unwrap();
@@ -220,6 +216,25 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     }
 }
 
+impl<
+        V: ScryptoEncode
+            + ScryptoDecode
+            + ScryptoDescribe
+            + Categorize<ScryptoCustomValueKind>
+            + Clone,
+    > BigVec<V>
+{
+    /// Returns all the value in the underlying representation.
+    /// Should only be used for tests.
+    pub fn internal_representation(&self) -> Vec<Vec<V>> {
+        let mut ret = vec![];
+        for i in 0..self.vec_structure.len() {
+            ret.push(self.vec_data.get(&i).unwrap().clone());
+        }
+        ret
+    }
+}
+
 pub struct BigVecIntoIterator<
     'a,
     V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind> + Clone,
@@ -270,7 +285,7 @@ impl<
         match self.current_vec_iterator.next() {
             Some(item) => Some(item),
             None => {
-                if self.current_vec == self.number_of_vec {
+                if self.current_vec + 1 >= self.number_of_vec {
                     None
                 } else {
                     self.current_vec += 1;

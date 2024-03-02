@@ -207,6 +207,7 @@ type_impl!(i16);
 type_impl!(i32);
 type_impl!(i64);
 type_impl!(i128);
+type_impl!(usize);
 type_impl!(String);
 type_impl!(ComponentAddress);
 type_impl!(PackageAddress);

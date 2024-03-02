@@ -523,7 +523,7 @@ impl TestEngine {
                 None => {}
                 Some(component) => {
                     self.components
-                        .insert(component_name.format(), component.clone().clone());
+                        .insert(component_name.format(), (*component).clone());
                 }
             }
 

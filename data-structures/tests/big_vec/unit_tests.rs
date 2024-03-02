@@ -10,7 +10,7 @@ fn instantiate() -> TestEngine {
         "big vec comp",
         "BigVecContract",
         "with_capacity_per_vec",
-        env_args!(3),
+        env_args!(3 as usize),
     );
     test_engine
 }
@@ -68,7 +68,7 @@ fn test_push_items() {
             .get_return();
 
         assert_eq!(len, (i + 1) as usize);
-        assert_eq!(vec_structure.len(), (i % 3 + 1) as usize);
+        assert_eq!(vec_structure.len(), (i / 3 + 1) as usize);
         assert_eq!(items, expected_items);
     }
 }
@@ -85,7 +85,7 @@ fn test_pop_items() {
 
     for i in 0..7 {
         let expect_popped = expected_items.pop();
-        let popped = test_engine.call_method("pop", env_args!());
+        let popped: Option<u32> = test_engine.call_method("pop", env_args!()).get_return();
 
         let len: usize = test_engine.call_method("len", env_args!()).get_return();
 
@@ -99,7 +99,7 @@ fn test_pop_items() {
 
         assert_eq!(expect_popped, popped);
         assert_eq!(len, (6 - i) as usize);
-        assert_eq!(vec_structure.len(), (3 - ((i + 1) % 3)) as usize);
+        assert_eq!(vec_structure.len(), (2 - i / 3) as usize);
         assert_eq!(items, expected_items);
     }
 }

@@ -56,10 +56,14 @@ mod big_vec {
             self.vec.capacity_per_vec()
         }
 
+        pub fn internal_representation(&self) -> Vec<Vec<u32>> {
+            self.vec.internal_representation()
+        }
+
         pub fn full_vec(&self) -> Vec<u32> {
             let mut ret = vec![];
-            for elem in self.vec {
-                ret.push(element);
+            for elem in &self.vec {
+                ret.push(elem);
             }
             ret
         }
