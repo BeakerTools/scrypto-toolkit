@@ -172,7 +172,7 @@ impl TestEngine {
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
         let caller = self.current_account().clone();
-        let component = self.current_component().clone();
+        let component = *self.current_component();
         CallBuilder::call_method(self, caller, component, method_name, args).execute()
     }
 
@@ -187,7 +187,7 @@ impl TestEngine {
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder {
         let caller = self.current_account().clone();
-        let component = self.current_component().clone();
+        let component = *self.current_component();
         CallBuilder::call_method(self, caller, component, method_name, args)
     }
 
@@ -233,7 +233,7 @@ impl TestEngine {
                 panic!("Token with name {} already exists", token_name.format());
             }
             None => {
-                let account = self.current_account().address().clone();
+                let account = *self.current_account().address();
                 let token_address = self
                     .engine_interface
                     .new_fungible(account, initial_distribution.try_into().unwrap());
@@ -280,7 +280,7 @@ impl TestEngine {
     /// # Arguments
     /// * `resource`: reference name of the resource.
     pub fn current_balance<E: EnvRef>(&mut self, resource: E) -> Decimal {
-        let account = self.current_account_address().clone();
+        let account = *self.current_account_address();
         let resource = self.get_resource(resource);
         self.engine_interface.balance(account, resource)
     }
@@ -291,9 +291,9 @@ impl TestEngine {
     /// * `account`: reference name of the account.
     /// * `resource`: reference name of the resource.
     pub fn balance_of<E: EnvRef, G: EnvRef>(&mut self, account: E, resource: E) -> Decimal {
-        let account = self.get_account(account);
+        let account = *self.get_account(account);
         let resource = self.get_resource(resource);
-        self.engine_interface.balance(account.clone(), resource)
+        self.engine_interface.balance(account, resource)
     }
 
     /// Returns the IDs of the given non-fungible resource owned by the current account.
@@ -301,7 +301,7 @@ impl TestEngine {
     /// # Arguments
     /// * `resource`: reference name of the non-fungible resource.
     pub fn current_ids_balance<E: EnvRef>(&mut self, resource: E) -> Vec<NonFungibleLocalId> {
-        let account = self.current_account_address().clone();
+        let account = *self.current_account_address();
         let resource = self.get_resource(resource);
         self.engine_interface.nft_ids(account, resource)
     }
@@ -318,7 +318,7 @@ impl TestEngine {
     ) -> Vec<NonFungibleLocalId> {
         let account = self.get_account(account);
         let resource = self.get_resource(resource);
-        self.engine_interface.nft_ids(account.clone(), resource)
+        self.engine_interface.nft_ids(*account, resource)
     }
 
     /// Moves to next epoch.
@@ -357,7 +357,7 @@ impl TestEngine {
     pub fn get_package<E: EnvRef>(&self, name: E) -> PackageAddress {
         match self.packages.get(&name.format()) {
             None => panic!("There is no package with name {}", name.format()),
-            Some(address) => address.clone(),
+            Some(address) => *address,
         }
     }
 
@@ -368,7 +368,7 @@ impl TestEngine {
     pub fn get_component<E: EnvRef>(&self, name: E) -> ComponentAddress {
         match self.components.get(&name.format()) {
             None => panic!("There is no component with name {}", name.format()),
-            Some(address) => address.clone(),
+            Some(address) => *address,
         }
     }
 
@@ -417,7 +417,7 @@ impl TestEngine {
     pub fn get_resource<E: EnvRef>(&self, name: E) -> ResourceAddress {
         match self.resources.get(&name.format()) {
             None => panic!("There is no resource with name {}", name.format()),
-            Some(resource) => resource.clone(),
+            Some(resource) => *resource,
         }
     }
 
@@ -430,7 +430,7 @@ impl TestEngine {
 
     /// Returns the [`ComponentAddress`] of the current account.
     pub fn current_account_address(&self) -> &ComponentAddress {
-        &self.accounts.get(&self.current_account).unwrap().address()
+        self.accounts.get(&self.current_account).unwrap().address()
     }
 
     /// Returns the [`ComponentAddress`] of the current component.
@@ -450,14 +450,14 @@ impl TestEngine {
                         name.format()
                     )
                 }
-                Some(component) => component.clone(),
+                Some(component) => *component,
             },
-            Some(account) => account.address().clone(),
+            Some(account) => *account.address(),
         }
     }
 
     pub(crate) fn current_account(&self) -> &Account {
-        &self.accounts.get(&self.current_account).unwrap()
+        self.accounts.get(&self.current_account).unwrap()
     }
 
     pub(crate) fn execute_call(
@@ -483,9 +483,8 @@ impl TestEngine {
         &mut self,
         resource: ResourceAddress,
     ) -> Vec<NonFungibleLocalId> {
-        let account = self.current_account().address().clone();
-        let ids = self.engine_interface.nft_ids(account, resource);
-        ids
+        let account = *self.current_account().address();
+        self.engine_interface.nft_ids(account, resource)
     }
 
     fn create_component<E1: EnvRef, E2: EnvRef>(
@@ -497,7 +496,7 @@ impl TestEngine {
         opt_badge: Option<E2>,
     ) -> TransactionReceipt {
         let caller = self.current_account().clone();
-        let package = self.current_package().clone();
+        let package = *self.current_package();
         let mut partial_call = CallBuilder::call_function(
             self,
             caller,
@@ -507,9 +506,8 @@ impl TestEngine {
             args,
         );
 
-        match opt_badge {
-            Some(badge) => partial_call = partial_call.with_badge(badge),
-            None => {}
+        if let Some(badge) = opt_badge {
+            partial_call = partial_call.with_badge(badge)
         }
 
         let receipt = partial_call.execute();
@@ -519,19 +517,15 @@ impl TestEngine {
         if let TransactionResult::Commit(commit) = &receipt.result {
             let components: Vec<&ComponentAddress> =
                 commit.new_component_addresses().iter().collect();
-            match components.get(0) {
-                None => {}
-                Some(component) => {
-                    self.components
-                        .insert(component_name.format(), (*component).clone());
-                }
+            if let Some(component) = components.first() {
+                self.components.insert(component_name.format(), **component);
             }
 
             if self.current_component.is_none() {
                 self.current_component = Some(component_name.format())
             };
 
-            self.update_resources_from_result(&commit);
+            self.update_resources_from_result(commit);
         } else if let TransactionResult::Reject(reject) = &receipt.result {
             panic!("{}", reject.reason);
         }
@@ -568,31 +562,24 @@ impl TestEngine {
     fn update_resources_from_result(&mut self, result: &CommitResult) {
         // Update tracked resources
         for resource in result.new_resource_addresses() {
-            match self
+            if let Some(MetadataValue::String(name)) = self
                 .engine_interface
-                .get_metadata(GlobalAddress::from(resource.clone()), "name")
+                .get_metadata(GlobalAddress::from(*resource), "name")
             {
-                None => {}
-                Some(entry) => match entry {
-                    MetadataValue::String(name) => {
-                        self.resources.insert(name.format(), resource.clone());
-                    }
-                    _ => {}
-                },
+                self.resources.insert(name.format(), *resource);
             }
 
-            match self
+            if let Some(MetadataValue::String(name)) = self
                 .engine_interface
-                .get_metadata(GlobalAddress::from(resource.clone()), "symbol")
+                .get_metadata(GlobalAddress::from(*resource), "symbol")
             {
-                None => {}
-                Some(entry) => match entry {
-                    MetadataValue::String(name) => {
-                        self.resources.insert(name.format(), resource.clone());
-                    }
-                    _ => {}
-                },
+                self.resources.insert(name.format(), *resource);
             }
         }
+    }
+}
+impl Default for TestEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }

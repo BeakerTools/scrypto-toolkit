@@ -9,6 +9,6 @@ pub trait Power {
 impl Power for Decimal {
     /// Returns number to the exp.
     fn pow(self, exp: Self) -> Self {
-        return (exp * self.ln()).exp();
+        (exp * self.ln()).exp()
     }
 }

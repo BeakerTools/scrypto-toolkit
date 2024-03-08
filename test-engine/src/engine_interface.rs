@@ -91,8 +91,8 @@ impl EngineInterface {
     ) -> Vec<NonFungibleLocalId> {
         let account_vault = self
             .test_runner
-            .get_component_vaults(account, resource_address.clone());
-        let account_vault = account_vault.get(0);
+            .get_component_vaults(account, resource_address);
+        let account_vault = account_vault.first();
         account_vault.map_or(vec![], |vault_id| {
             match self.test_runner.inspect_non_fungible_vault(*vault_id) {
                 None => vec![],
@@ -168,7 +168,7 @@ impl EngineInterface {
                     },
                     InstructionV1::CallMethod {
                         address: DynamicGlobalAddress::Static(GlobalAddress::new_or_panic(
-                            default_account.address().clone().into(),
+                            (*default_account.address()).into(),
                         )),
                         method_name: "deposit_batch".to_string(),
                         args: manifest_args!(ManifestExpression::EntireWorktop).into(),
