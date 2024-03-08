@@ -13,7 +13,7 @@ pub trait Exponential {
 impl Exponential for Decimal {
     /// Returns the exponential of a [`Decimal`] using Taylor series.
     fn exp(self) -> Self {
-        return if self.is_zero() {
+        if self.is_zero() {
             Decimal::one()
         } else if self.is_negative() {
             if self < SMALLEST_NON_ZERO {
@@ -25,16 +25,16 @@ impl Exponential for Decimal {
             let self_384 = I256::from(self.0);
             let one_384 = I256::from(Decimal::ONE.0);
             let mut result = one_384;
-            let mut added_term = self_384.clone();
+            let mut added_term = self_384;
             let mut counter = I256::ONE;
             while added_term != I256::ZERO {
                 result += added_term;
                 counter += I256::ONE;
-                added_term = added_term * (self_384 / counter);
+                added_term *= self_384 / counter;
                 added_term /= one_384;
             }
             Decimal(I192::try_from(result).expect("Overflow"))
-        };
+        }
     }
 }
 

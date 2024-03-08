@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::vec::Vec;
 
-use radix_engine::transaction::TransactionReceipt;
+use radix_engine::transaction::{TransactionReceipt, TransactionResult};
 use radix_engine::types::{
     manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
     ManifestExpression, ManifestValueKind, NonFungibleLocalId, PackageAddress, ResourceAddress,
@@ -38,8 +38,22 @@ impl<'a> CallBuilder<'a> {
         self.write_badge();
         self.output_manifest();
 
-        self.test_engine
-            .execute_call(self.manifest, self.with_trace, vec![self.caller.proof()])
+        let receipt = self.test_engine.execute_call(
+            self.manifest,
+            self.with_trace,
+            vec![self.caller.proof()],
+        );
+
+        if let TransactionResult::Commit(commit_result) = &receipt.result {
+            if !commit_result.application_logs.is_empty() {
+                println!("Application logs:");
+                for (level, message) in &commit_result.application_logs {
+                    println!("| [{level}]: {message}")
+                }
+            }
+        }
+
+        receipt
     }
 
     /// Deposits the batch to the given account.
@@ -47,7 +61,7 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `account`: reference name of the account to which deposit the batch.
     pub fn deposit_batch<E: EnvRef>(mut self, account: E) -> Self {
-        self.deposit_destination = self.test_engine.get_account(account).clone();
+        self.deposit_destination = *self.test_engine.get_account(account);
         self
     }
 
@@ -86,7 +100,7 @@ impl<'a> CallBuilder<'a> {
         } else {
             Some(
                 self.test_engine
-                    .ids_owned_at_address(resource.clone())
+                    .ids_owned_at_address(resource)
                     .into_iter()
                     .collect(),
             )
@@ -122,12 +136,7 @@ impl<'a> CallBuilder<'a> {
         encoder.write_value_kind(ManifestValueKind::Tuple).unwrap();
         encoder.write_size(args.len()).unwrap();
         for arg in args {
-            manifest = arg.encode(
-                &test_engine,
-                manifest,
-                &mut encoder,
-                caller.address().clone(),
-            );
+            manifest = arg.encode(test_engine, manifest, &mut encoder, *caller.address());
         }
 
         let value = manifest_decode(&buf).unwrap();
@@ -136,7 +145,7 @@ impl<'a> CallBuilder<'a> {
         let manifest = manifest.call_method(component, method_name, manifest_arg);
 
         let object_names = manifest.object_names();
-        let deposit_destination = caller.address().clone();
+        let deposit_destination = *caller.address();
 
         Self {
             caller,
@@ -170,12 +179,7 @@ impl<'a> CallBuilder<'a> {
         encoder.write_value_kind(ManifestValueKind::Tuple).unwrap();
         encoder.write_size(args.len()).unwrap();
         for arg in args {
-            manifest = arg.encode(
-                &test_engine,
-                manifest,
-                &mut encoder,
-                caller.address().clone(),
-            );
+            manifest = arg.encode(test_engine, manifest, &mut encoder, *caller.address());
         }
 
         let value = manifest_decode(&buf).unwrap();
@@ -185,7 +189,7 @@ impl<'a> CallBuilder<'a> {
             manifest.call_function(package_address, blueprint_name, function_name, manifest_arg);
 
         let object_names = manifest.object_names();
-        let deposit_destination = caller.address().clone();
+        let deposit_destination = *caller.address();
 
         Self {
             caller,
@@ -205,7 +209,7 @@ impl<'a> CallBuilder<'a> {
         self.manifest.instructions.insert(
             0,
             transaction::model::InstructionV1::CallMethod {
-                address: DynamicGlobalAddress::from(self.fee_payer.clone()),
+                address: DynamicGlobalAddress::from(self.fee_payer),
                 method_name: "lock_fee".to_string(),
                 args: manifest_args!(self.fee_locked).resolve(),
             },
@@ -216,7 +220,7 @@ impl<'a> CallBuilder<'a> {
         self.manifest
             .instructions
             .push(transaction::model::InstructionV1::CallMethod {
-                address: DynamicGlobalAddress::from(self.caller.address().clone()),
+                address: DynamicGlobalAddress::from(*self.caller.address()),
                 method_name: "deposit_batch".to_string(),
                 args: manifest_args!(ManifestExpression::EntireWorktop).resolve(),
             });
@@ -229,18 +233,18 @@ impl<'a> CallBuilder<'a> {
                     self.manifest.instructions.insert(
                         1,
                         transaction::model::InstructionV1::CallMethod {
-                            address: DynamicGlobalAddress::from(self.caller.address().clone()),
+                            address: DynamicGlobalAddress::from(*self.caller.address()),
                             method_name: "create_proof_of_amount".to_string(),
-                            args: manifest_args!(badge.clone(), Decimal::one()).resolve(),
+                            args: manifest_args!(badge, Decimal::one()).resolve(),
                         },
                     )
                 } else {
                     self.manifest.instructions.insert(
                         1,
                         transaction::model::InstructionV1::CallMethod {
-                            address: DynamicGlobalAddress::from(self.caller.address().clone()),
+                            address: DynamicGlobalAddress::from(*self.caller.address()),
                             method_name: "create_proof_of_non_fungibles".to_string(),
-                            args: manifest_args!(badge.clone(), opt_ids.clone().unwrap()).resolve(),
+                            args: manifest_args!(badge, opt_ids.clone().unwrap()).resolve(),
                         },
                     );
                 }

@@ -1,6 +1,7 @@
 [package]
 name = "decimal-maths"
 version = "0.0.1"
+license = "MIT"
 edition = "2021"
 
 [dependencies]

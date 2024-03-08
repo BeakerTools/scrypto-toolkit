@@ -49,7 +49,7 @@ impl<E: EnvRef + Clone> Environment<E> {
     ) {
         match self {
             Environment::Account(address) => {
-                let account = test_engine.get_account(address.clone()).clone();
+                let account = *test_engine.get_account(address.clone());
                 (manifest_builder, Box::new(account))
             }
             Environment::Component(address) => {
@@ -65,12 +65,12 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "withdraw",
-                    manifest_args!(resource_address.clone(), amount),
+                    manifest_args!(resource_address, amount),
                 );
                 let (manifest_builder, bucket) =
                     manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
                         resource_address,
-                        amount: amount.clone(),
+                        amount: *amount,
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
@@ -79,7 +79,7 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "withdraw_non_fungibles",
-                    manifest_args!(resource_address.clone(), ids.clone()),
+                    manifest_args!(resource_address, ids.clone()),
                 );
                 let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
                     InstructionV1::TakeNonFungiblesFromWorktop {
@@ -94,11 +94,11 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "create_proof_of_amount",
-                    manifest_args!(resource_address.clone(), amount),
+                    manifest_args!(resource_address, amount),
                 );
                 let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
                     InstructionV1::CreateProofFromAuthZoneOfAmount {
-                        amount: amount.clone(),
+                        amount: *amount,
                         resource_address,
                     },
                 );
@@ -109,7 +109,7 @@ impl<E: EnvRef + Clone> Environment<E> {
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "create_proof_of_non_fungibles",
-                    manifest_args!(resource_address.clone(), ids.clone()),
+                    manifest_args!(resource_address, ids.clone()),
                 );
                 let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
                     InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
