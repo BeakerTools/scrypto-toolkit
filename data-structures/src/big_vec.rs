@@ -134,30 +134,41 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     /// assert_eq!(big_vec.pop(), Some(2));
     /// assert_eq!(big_vec.pop(), Some(1));
     /// ```
-    pub fn insert(&mut self, mut index: usize, element: V) {
+    pub fn insert(&mut self, index: usize, element: V) {
         let mut data_index: usize = 0;
+        let mut vec_index = index;
 
         // First get the correct vec and position where to insert
         for items_nb in &self.vec_structure {
-            if index > *items_nb {
-                index -= items_nb;
+            if vec_index > *items_nb {
+                vec_index -= items_nb;
                 data_index += 1;
             } else {
                 break;
             }
         }
 
-        if data_index >= self.vec_structure.len() {
+        // If we exceeded the size, panic
+        if (data_index > self.vec_structure.len() && vec_index > 0)
+            || vec_index > *self.vec_structure.last().unwrap() + 1
+        {
             panic!("Trying to insert to index {index} which is out of bounds!")
         }
 
-        // Then insert the item
+        // If we are trying to insert at last position, push item
+        if self.vec_structure.get(data_index).is_none() {
+            self.vec_structure.push(1);
+            self.vec_data.insert(data_index, vec![element]);
+            return;
+        }
+
+        // Otherwise, insert the item
         let mut data = self
             .vec_data
             .get_mut(&data_index)
             .expect("Something is wrong with this BigVec");
 
-        data.insert(index, element);
+        data.insert(vec_index, element);
 
         if data.len() <= self.capacity_per_vec {
             *self.vec_structure.get_mut(data_index).unwrap() += 1;
