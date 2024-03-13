@@ -46,7 +46,7 @@ impl<'a> CallBuilder<'a> {
 
         if let TransactionResult::Commit(commit_result) = &receipt.result {
             if !commit_result.application_logs.is_empty() {
-                println!("Application logs:");
+                println!("\nApplication logs:");
                 for (level, message) in &commit_result.application_logs {
                     println!("| [{level}]: {message}")
                 }

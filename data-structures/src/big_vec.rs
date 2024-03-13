@@ -116,6 +116,13 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
 
     /// Inserts an element at a specified index in the `BigVec`.
     ///
+    /// # Safety
+    ///
+    /// This method is marked as unsafe because it allows inserting elements into the `BigVec` at a
+    /// specific index, which could potentially lead to exceed the fee limit during a transaction.
+    /// The caller is responsible for ensuring that inserting elements using this method does
+    /// not result exceeding fee limits.
+    ///
     /// # Panics
     ///
     /// Panics if the index is out of bounds.
@@ -129,12 +136,12 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     ///
     /// big_vec.push(1);
     /// big_vec.push(3);
-    /// big_vec.insert(1, 2);
+    /// unsafe { big_vec.insert(1, 2); }
     /// assert_eq!(big_vec.pop(), Some(3));
     /// assert_eq!(big_vec.pop(), Some(2));
     /// assert_eq!(big_vec.pop(), Some(1));
     /// ```
-    pub fn insert(&mut self, index: usize, element: V) {
+    pub unsafe fn insert(&mut self, index: usize, element: V) {
         let mut data_index: usize = 0;
         let mut vec_index = index;
 
@@ -147,6 +154,14 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
                 break;
             }
         }
+
+        info!(
+            "len: {}, index: {}, data_index: {}, vec_index: {}",
+            self.len(),
+            index,
+            data_index,
+            vec_index
+        );
 
         // If we exceeded the size, panic
         if (data_index > self.vec_structure.len() && vec_index > 0)
@@ -242,7 +257,6 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
                         .get_mut(&(start_index - 1))
                         .unwrap()
                         .append(&mut elements.drain(..elems_to_push).collect());
-                    start_index += 1;
                 }
             }
         }
@@ -435,7 +449,7 @@ impl<
                     self.current_vec += 1;
                     self.current_vec_iterator = match self.vec_data.get(&self.current_vec) {
                         None => {
-                            panic!("The iterator is wrongly formed")
+                            panic!("The iterator is wrongly formed! Could not find element at index {}", self.current_vec);
                         }
                         Some(vec) => <Vec<V> as Clone>::clone(&vec).into_iter(),
                     };

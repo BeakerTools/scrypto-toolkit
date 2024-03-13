@@ -59,7 +59,9 @@ mod big_vec {
         }
 
         pub fn insert(&mut self, index: usize, element: u32) {
-            self.vec.insert(index, element);
+            unsafe {
+                self.vec.insert(index, element);
+            }
         }
 
         pub fn push_vec(&mut self, elements: Vec<u32>) {

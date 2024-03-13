@@ -172,7 +172,9 @@ fn test_insert_items() {
     let mut expected_items: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6];
     let mut items: Vec<u32>;
 
-    test_engine.call_method("insert", env_args!(5 as usize, 10 as u32));
+    test_engine
+        .call_method("insert", env_args!(5 as usize, 10 as u32))
+        .assert_is_success();
     expected_items.insert(5, 10);
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
@@ -181,7 +183,9 @@ fn test_insert_items() {
         .call_method("insert", env_args!(15 as usize, 10 as u32))
         .assert_failed_with("Trying to insert to index 15 which is out of bounds!");
 
-    test_engine.call_method("insert", env_args!(0 as usize, 10 as u32));
+    test_engine
+        .call_method("insert", env_args!(0 as usize, 10 as u32))
+        .assert_is_success();
     expected_items.insert(0, 10);
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
@@ -198,11 +202,38 @@ fn test_insert_items() {
     test_engine.call_method("insert", env_args!(0 as usize, 1 as u32));
 
     items = get_vec(&mut test_engine);
-    let len: usize = test_engine.call_method("len", env_args!()).get_return();
-
-    let vec_structure: Vec<usize> = test_engine
-        .call_method("structure", env_args!())
-        .get_return();
 
     assert_eq!(items, vec![1])
+}
+
+#[test]
+fn test_push_vec() {
+    let mut test_engine = instantiate_with_items();
+
+    let mut expected_items: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6];
+    let mut items: Vec<u32>;
+
+    let mut new_items = vec![7, 8, 9];
+    test_engine
+        .call_method("push_vec", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    items = get_vec(&mut test_engine);
+    assert_eq!(items, expected_items);
+
+    new_items = vec![10];
+    test_engine
+        .call_method("push_vec", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    items = get_vec(&mut test_engine);
+    assert_eq!(items, expected_items);
+
+    new_items = vec![11, 12, 13, 14];
+    test_engine
+        .call_method("push_vec", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    items = get_vec(&mut test_engine);
+    assert_eq!(items, expected_items);
 }
