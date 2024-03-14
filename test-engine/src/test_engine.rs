@@ -470,7 +470,7 @@ impl TestEngine {
             .engine_interface
             .execute_manifest(manifest, with_trace, initial_proofs);
         if let TransactionResult::Commit(commit_result) = &receipt.result {
-            self.update_resources_from_result(commit_result);
+            self.update_data_from_result(commit_result);
         }
         receipt
     }
@@ -485,6 +485,16 @@ impl TestEngine {
     ) -> Vec<NonFungibleLocalId> {
         let account = *self.current_account().address();
         self.engine_interface.nft_ids(account, resource)
+    }
+
+    pub(crate) fn update_data_from_result(&mut self, result: &CommitResult) {
+        for component in result.new_component_addresses() {
+            if let Some(name) = self.get_metadata_value_of("name", component.clone().into()) {
+                self.insert_component(name, *component)
+            }
+        }
+
+        self.update_resources_from_result(result);
     }
 
     fn create_component<E1: EnvRef, E2: EnvRef>(
@@ -562,19 +572,38 @@ impl TestEngine {
     fn update_resources_from_result(&mut self, result: &CommitResult) {
         // Update tracked resources
         for resource in result.new_resource_addresses() {
-            if let Some(MetadataValue::String(name)) = self
-                .engine_interface
-                .get_metadata(GlobalAddress::from(*resource), "name")
-            {
-                self.resources.insert(name.format(), *resource);
+            if let Some(name) = self.get_metadata_value_of("name", resource.clone().into()) {
+                self.insert_resource(name, *resource);
             }
+            if let Some(name) = self.get_metadata_value_of("symbol", resource.clone().into()) {
+                self.insert_resource(name, *resource);
+            }
+        }
+    }
 
-            if let Some(MetadataValue::String(name)) = self
-                .engine_interface
-                .get_metadata(GlobalAddress::from(*resource), "symbol")
-            {
-                self.resources.insert(name.format(), *resource);
-            }
+    fn get_metadata_value_of(&mut self, metadata: &str, address: GlobalAddress) -> Option<String> {
+        if let Some(MetadataValue::String(value)) =
+            self.engine_interface.get_metadata(address, metadata)
+        {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    fn insert_resource(&mut self, name: String, resource_address: ResourceAddress) {
+        if self.resources.contains_key(&name.format()) {
+            panic!("Token with name {} already exists", name.format());
+        } else {
+            self.resources.insert(name.format(), resource_address);
+        }
+    }
+
+    fn insert_component(&mut self, name: String, component_address: ComponentAddress) {
+        if self.components.contains_key(&name.format()) {
+            panic!("Component with name {} already exists", name.format());
+        } else {
+            self.components.insert(name.format(), component_address);
         }
     }
 }

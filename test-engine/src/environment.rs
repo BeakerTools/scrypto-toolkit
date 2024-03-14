@@ -263,6 +263,7 @@ collection_impl!(Vec);
 collection_impl!(BTreeSet);
 collection_impl!(HashSet, Ord, std::hash::Hash);
 collection_impl!(IndexSet, std::hash::Hash);
+collection_impl!(Option);
 
 macro_rules!double_collection_impl {
     ($type:ident, $( $path:path ),*) => {
