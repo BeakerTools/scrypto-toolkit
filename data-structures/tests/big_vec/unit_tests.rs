@@ -190,7 +190,9 @@ fn test_insert_items() {
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
 
-    test_engine.call_method("insert", env_args!(expected_items.len(), 23));
+    test_engine
+        .call_method("insert", env_args!(expected_items.len(), 23 as u32))
+        .assert_is_success();
     expected_items.insert(expected_items.len(), 23);
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
@@ -236,4 +238,38 @@ fn test_push_vec() {
     expected_items.append(&mut new_items);
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
+}
+
+#[test]
+fn test_get() {
+    let mut test_engine = instantiate_with_items();
+
+    for i in 0..7 {
+        println!("{}", i);
+        let ret: Option<u32> = test_engine
+            .call_method("get", env_args!(i as usize))
+            .assert_is_success()
+            .get_return();
+        assert_eq!(ret, Some(i as u32))
+    }
+    let ret: Option<i32> = test_engine
+        .call_method("get", env_args!(7 as usize))
+        .assert_is_success()
+        .get_return();
+    assert_eq!(ret, None);
+}
+
+#[test]
+fn test_get_mut() {
+    let mut test_engine = instantiate_with_items();
+    test_engine
+        .call_method("change_value_at", env_args!(0 as usize, 35 as u32))
+        .assert_is_success();
+
+    let new_value: Option<u32> = test_engine
+        .call_method("get", env_args!(0 as usize))
+        .assert_is_success()
+        .get_return();
+
+    assert_eq!(new_value, Some(35));
 }

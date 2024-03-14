@@ -4,6 +4,7 @@ use scrypto::prelude::*;
 mod big_vec {
     use data_structures::big_vec;
     use data_structures::big_vec::BigVec;
+    use std::ops::Deref;
 
     struct BigVecContract {
         vec: BigVec<u32>,
@@ -56,6 +57,13 @@ mod big_vec {
 
         pub fn pop(&mut self) -> Option<u32> {
             self.vec.pop()
+        }
+
+        pub fn get(&self, index: usize) -> Option<u32> {
+            match self.vec.get(&index) {
+                None => None,
+                Some(value) => Some(value.deref().clone()),
+            }
         }
 
         pub fn insert(&mut self, index: usize, element: u32) {
@@ -111,6 +119,10 @@ mod big_vec {
             let other_big_vec: Global<AnyComponent> = address.into();
             let big_vec = other_big_vec.call("to_big_vec", &None::<u32>);
             self.vec.append(big_vec);
+        }
+
+        pub fn change_value_at(&mut self, index: usize, value: u32) {
+            *self.vec.get_mut(&index).unwrap() = value;
         }
 
         pub fn full_vec(&self) -> Vec<u32> {

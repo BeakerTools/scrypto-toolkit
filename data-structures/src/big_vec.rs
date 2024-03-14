@@ -7,20 +7,26 @@
 use scrypto::prelude::*;
 use std::cmp::min;
 use std::mem::size_of;
+use std::ops::{Deref, DerefMut};
 use std::vec::IntoIter;
 
+pub trait BigVecElement:
+    ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>
+{
+}
+impl<T: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>>
+    BigVecElement for T
+{
+}
+
 #[derive(ScryptoSbor)]
-pub struct BigVec<
-    V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>,
-> {
+pub struct BigVec<V: BigVecElement> {
     capacity_per_vec: usize,
     vec_structure: Vec<usize>,
     vec_data: KeyValueStore<usize, Vec<V>>,
 }
 
-impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>>
-    BigVec<V>
-{
+impl<V: BigVecElement> BigVec<V> {
     /// Constructs a new, empty `BigVec<V>`.
     pub fn new() -> Self {
         Self {
@@ -114,6 +120,79 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
         }
     }
 
+    /// Retrieves an immutable reference to an item in the `BigVec`.
+    ///
+    /// This method takes a reference to an index and returns an `Option` containing a
+    /// reference to the item at the specified index, if it exists. If the index is out
+    /// of bounds,, it returns `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - A reference to the index of the item to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a reference to the item at the specified index, if it exists.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    /// big_vec.push(10);
+    ///
+    /// assert_eq!(big_vec.get(&0), Some(&10));
+    /// assert_eq!(big_vec.get(&1), None);
+    /// ```
+    pub fn get(&self, index: &usize) -> Option<BigVecItemRef<'_, V>> {
+        match self.get_correct_indexes(index) {
+            None => None,
+            Some(indexes) => Some(BigVecItemRef::new(
+                self.vec_data.get(&indexes.0).unwrap(),
+                indexes.1,
+            )),
+        }
+    }
+
+    /// Retrieves a mutable reference to an item in the `BigVec`.
+    ///
+    /// This method takes a reference to an index and returns an `Option` containing a
+    /// mutable reference to the item at the specified index, if it exists. If the index
+    /// is out of bounds, it returns `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - A reference to the index of the item to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a mutable reference to the item at the specified index, if it exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::new();
+    /// big_vec.push(10);
+    ///
+    /// if let Some(mut item) = big_vec.get_mut(&0) {
+    ///     *item = 20;
+    /// }
+    ///
+    /// assert_eq!(big_vec.get(&0), Some(&20));
+    /// ```
+    pub fn get_mut(&mut self, index: &usize) -> Option<BigVecItemRefMut<'_, V>> {
+        match self.get_correct_indexes(index) {
+            None => None,
+            Some(indexes) => Some(BigVecItemRefMut::new(
+                self.vec_data.get_mut(&indexes.0).unwrap(),
+                indexes.1,
+            )),
+        }
+    }
+
     /// Inserts an element at a specified index in the `BigVec`.
     ///
     /// # Safety
@@ -142,30 +221,13 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     /// assert_eq!(big_vec.pop(), Some(1));
     /// ```
     pub unsafe fn insert(&mut self, index: usize, element: V) {
-        let mut data_index: usize = 0;
-        let mut vec_index = index;
+        let data_index = index / self.capacity_per_vec;
+        let vec_index = index % self.capacity_per_vec;
 
-        // First get the correct vec and position where to insert
-        for items_nb in &self.vec_structure {
-            if vec_index > *items_nb {
-                vec_index -= items_nb;
-                data_index += 1;
-            } else {
-                break;
-            }
-        }
-
-        info!(
-            "len: {}, index: {}, data_index: {}, vec_index: {}",
-            self.len(),
-            index,
-            data_index,
-            vec_index
-        );
-
-        // If we exceeded the size, panic
-        if (data_index > self.vec_structure.len() && vec_index > 0)
-            || vec_index > *self.vec_structure.last().unwrap() + 1
+        if data_index > self.vec_structure.len()
+            || (data_index == self.vec_structure.len() && vec_index > 0)
+            || (data_index + 1 == self.vec_structure.len()
+                && vec_index >= *self.vec_structure.last().unwrap())
         {
             panic!("Trying to insert to index {index} which is out of bounds!")
         }
@@ -354,6 +416,21 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     pub fn capacity_per_vec(&self) -> usize {
         self.capacity_per_vec
     }
+
+    fn get_correct_indexes(&self, index: &usize) -> Option<(usize, usize)> {
+        let data_index = *index / self.capacity_per_vec;
+        let vec_index = *index % self.capacity_per_vec;
+
+        // If we exceeded the size return None
+        if data_index >= self.vec_structure.len()
+            || (data_index + 1 == self.vec_structure.len()
+                && vec_index >= *self.vec_structure.last().unwrap())
+        {
+            None
+        } else {
+            Some((data_index, vec_index))
+        }
+    }
 }
 
 impl<
@@ -375,17 +452,13 @@ impl<
     }
 }
 
-impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>>
-    Default for BigVec<V>
-{
+impl<V: BigVecElement> Default for BigVec<V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind>>
-    From<Vec<V>> for BigVec<V>
-{
+impl<V: BigVecElement> From<Vec<V>> for BigVec<V> {
     fn from(vec: Vec<V>) -> Self {
         let mut big_vec = BigVec::new();
         big_vec.push_vec(vec);
@@ -393,24 +466,62 @@ impl<V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
     }
 }
 
-pub struct BigVecIntoIterator<
-    'a,
-    V: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCustomValueKind> + Clone,
-> {
+pub struct BigVecItemRef<'a, V: BigVecElement> {
+    sub_vec: KeyValueEntryRef<'a, Vec<V>>,
+    item_index: usize,
+}
+
+impl<'a, V: BigVecElement> BigVecItemRef<'a, V> {
+    pub fn new(sub_vec: KeyValueEntryRef<'a, Vec<V>>, item_index: usize) -> Self {
+        Self {
+            sub_vec,
+            item_index,
+        }
+    }
+}
+
+impl<'a, V: BigVecElement> Deref for BigVecItemRef<'a, V> {
+    type Target = V;
+
+    fn deref(&self) -> &Self::Target {
+        self.sub_vec.get(self.item_index).unwrap()
+    }
+}
+
+pub struct BigVecItemRefMut<'a, V: BigVecElement> {
+    sub_vec: KeyValueEntryRefMut<'a, Vec<V>>,
+    item_index: usize,
+}
+impl<'a, V: BigVecElement> BigVecItemRefMut<'a, V> {
+    pub fn new(sub_vec: KeyValueEntryRefMut<'a, Vec<V>>, item_index: usize) -> Self {
+        Self {
+            sub_vec,
+            item_index,
+        }
+    }
+}
+
+impl<'a, V: BigVecElement> Deref for BigVecItemRefMut<'a, V> {
+    type Target = V;
+
+    fn deref(&self) -> &Self::Target {
+        self.sub_vec.get(self.item_index).unwrap()
+    }
+}
+
+impl<'a, V: BigVecElement> DerefMut for BigVecItemRefMut<'a, V> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.sub_vec.get_mut(self.item_index).unwrap()
+    }
+}
+
+pub struct BigVecIntoIterator<'a, V: BigVecElement + Clone> {
     pub number_of_vec: usize,
     pub current_vec: usize,
     pub current_vec_iterator: IntoIter<V>,
     pub vec_data: &'a KeyValueStore<usize, Vec<V>>,
 }
-impl<
-        'a,
-        V: ScryptoEncode
-            + ScryptoDecode
-            + ScryptoDescribe
-            + Categorize<ScryptoCustomValueKind>
-            + Clone,
-    > IntoIterator for &'a BigVec<V>
-{
+impl<'a, V: BigVecElement + Clone> IntoIterator for &'a BigVec<V> {
     type Item = V;
     type IntoIter = BigVecIntoIterator<'a, V>;
 
@@ -428,15 +539,7 @@ impl<
     }
 }
 
-impl<
-        'a,
-        V: ScryptoEncode
-            + ScryptoDecode
-            + ScryptoDescribe
-            + Categorize<ScryptoCustomValueKind>
-            + Clone,
-    > Iterator for BigVecIntoIterator<'a, V>
-{
+impl<'a, V: BigVecElement + Clone> Iterator for BigVecIntoIterator<'a, V> {
     type Item = V;
 
     fn next(&mut self) -> Option<Self::Item> {
