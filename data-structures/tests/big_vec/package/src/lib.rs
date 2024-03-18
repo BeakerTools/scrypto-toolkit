@@ -72,6 +72,10 @@ mod big_vec {
             }
         }
 
+        pub fn pop_first_vec(&mut self) -> Option<Vec<u32>> {
+            self.vec.pop_first_vec()
+        }
+
         pub fn push_vec(&mut self, elements: Vec<u32>) {
             self.vec.push_vec(elements);
         }

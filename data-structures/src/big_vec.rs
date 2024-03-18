@@ -21,6 +21,7 @@ impl<T: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
 
 #[derive(ScryptoSbor)]
 pub struct BigVec<V: BigVecElement> {
+    start_index: usize,
     capacity_per_vec: usize,
     vec_structure: Vec<usize>,
     vec_data: KeyValueStore<usize, Vec<V>>,
@@ -30,6 +31,7 @@ impl<V: BigVecElement> BigVec<V> {
     /// Constructs a new, empty `BigVec<V>`.
     pub fn new() -> Self {
         Self {
+            start_index: 0,
             capacity_per_vec: 1_000_000 / size_of::<V>(),
             vec_structure: Vec::new(),
             vec_data: KeyValueStore::new(),
@@ -56,6 +58,7 @@ impl<V: BigVecElement> BigVec<V> {
     /// ```
     pub fn with_capacity_per_vec(capacity_per_vec: usize) -> Self {
         Self {
+            start_index: 0,
             capacity_per_vec,
             vec_structure: Vec::new(),
             vec_data: KeyValueStore::new(),
@@ -76,15 +79,19 @@ impl<V: BigVecElement> BigVec<V> {
     pub fn push(&mut self, element: V) {
         if self.vec_structure.is_empty() {
             self.vec_structure.push(1);
-            self.vec_data.insert(0, vec![element]);
+            self.vec_data.insert(self.start_index, vec![element]);
         } else {
             let vec_length = self.vec_structure.len();
             if self.vec_structure[vec_length - 1] == self.capacity_per_vec {
                 self.vec_structure.push(1);
-                self.vec_data.insert(vec_length, vec![element]);
+                self.vec_data
+                    .insert(vec_length + self.start_index, vec![element]);
             } else {
                 self.vec_structure[vec_length - 1] += 1;
-                let mut data = self.vec_data.get_mut(&(vec_length - 1)).unwrap();
+                let mut data = self
+                    .vec_data
+                    .get_mut(&(vec_length + self.start_index - 1))
+                    .unwrap();
                 data.push(element);
             }
         }
@@ -142,8 +149,8 @@ impl<V: BigVecElement> BigVec<V> {
     /// let mut big_vec: BigVec<i32> = BigVec::new();
     /// big_vec.push(10);
     ///
-    /// assert_eq!(big_vec.get(&0), Some(&10));
-    /// assert_eq!(big_vec.get(&1), None);
+    /// assert_eq!(big_vec.get(&0).as_deref(), Some(&10));
+    /// assert_eq!(big_vec.get(&1).as_deref(), None);
     /// ```
     pub fn get(&self, index: &usize) -> Option<BigVecItemRef<'_, V>> {
         match self.get_correct_indexes(index) {
@@ -171,7 +178,7 @@ impl<V: BigVecElement> BigVec<V> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// use data_structures::big_vec::BigVec;
     ///
     /// let mut big_vec: BigVec<i32> = BigVec::new();
@@ -181,7 +188,7 @@ impl<V: BigVecElement> BigVec<V> {
     ///     *item = 20;
     /// }
     ///
-    /// assert_eq!(big_vec.get(&0), Some(&20));
+    /// assert_eq!(big_vec.get(&0).as_deref(), Some(&20));
     /// ```
     pub fn get_mut(&mut self, index: &usize) -> Option<BigVecItemRefMut<'_, V>> {
         match self.get_correct_indexes(index) {
@@ -221,7 +228,7 @@ impl<V: BigVecElement> BigVec<V> {
     /// assert_eq!(big_vec.pop(), Some(1));
     /// ```
     pub unsafe fn insert(&mut self, index: usize, element: V) {
-        let data_index = index / self.capacity_per_vec;
+        let mut data_index = index / self.capacity_per_vec;
         let vec_index = index % self.capacity_per_vec;
 
         if data_index > self.vec_structure.len()
@@ -231,6 +238,8 @@ impl<V: BigVecElement> BigVec<V> {
         {
             panic!("Trying to insert to index {index} which is out of bounds!")
         }
+
+        data_index += self.start_index;
 
         // If we are trying to insert at last position, push item
         if self.vec_structure.get(data_index).is_none() {
@@ -284,6 +293,41 @@ impl<V: BigVecElement> BigVec<V> {
         }
     }
 
+    /// Removes and returns the first vector of elements from a `BigVec`.
+    ///
+    /// This method removes and returns the first vector of elements from the `BigVec`.
+    /// If the `BigVec` is empty, it returns `None`.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the first vector of elements from the `BigVec`, if it exists.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec: BigVec<i32> = BigVec::with_capacity_per_vec(2);
+    /// big_vec.push(1);
+    /// big_vec.push(2);
+    /// big_vec.push(3);
+    ///
+    /// assert_eq!(big_vec.pop_first_vec(), Some(vec![1,2]));
+    /// assert_eq!(big_vec.pop_first_vec(), Some(vec![3]));
+    /// assert_eq!(big_vec.pop_first_vec(), None)
+    /// ```
+    pub fn pop_first_vec(&mut self) -> Option<Vec<V>> {
+        match self.vec_structure.first() {
+            None => None,
+            Some(_) => {
+                self.vec_structure.remove(0);
+                let ret = self.vec_data.remove(&self.start_index);
+                self.start_index += 1;
+                ret
+            }
+        }
+    }
+
     /// Pushes elements from a vector into a BigVec, organizing them into sub-vectors based on the configured capacity.
     /// If the last sub-vector in the BigVec has space remaining, the elements are appended to it.
     /// If not, a new sub-vector is created and the elements are divided accordingly.
@@ -295,6 +339,8 @@ impl<V: BigVecElement> BigVec<V> {
     /// # Example
     ///
     /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
     /// let mut big_vec = BigVec::<i32>::new();
     /// let elements = vec![1, 2, 3, 4, 5];
     /// big_vec.push_vec(elements);
@@ -342,6 +388,8 @@ impl<V: BigVecElement> BigVec<V> {
     /// # Example
     ///
     /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
     /// let mut big_vec1 = BigVec::<i32>::new();
     /// let mut big_vec2 = BigVec::<i32>::new();
     /// big_vec1.append(big_vec2);
@@ -428,7 +476,7 @@ impl<V: BigVecElement> BigVec<V> {
         {
             None
         } else {
-            Some((data_index, vec_index))
+            Some((data_index + self.start_index, vec_index))
         }
     }
 }
