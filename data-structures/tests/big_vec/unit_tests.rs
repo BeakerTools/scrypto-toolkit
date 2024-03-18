@@ -166,7 +166,41 @@ fn test_pop_items() {
 }
 
 #[test]
-fn test_insert_items() {
+fn test_get() {
+    let mut test_engine = instantiate_with_items();
+
+    for i in 0..7 {
+        println!("{}", i);
+        let ret: Option<u32> = test_engine
+            .call_method("get", env_args!(i as usize))
+            .assert_is_success()
+            .get_return();
+        assert_eq!(ret, Some(i as u32))
+    }
+    let ret: Option<i32> = test_engine
+        .call_method("get", env_args!(7 as usize))
+        .assert_is_success()
+        .get_return();
+    assert_eq!(ret, None);
+}
+
+#[test]
+fn test_get_mut() {
+    let mut test_engine = instantiate_with_items();
+    test_engine
+        .call_method("change_value_at", env_args!(0 as usize, 35 as u32))
+        .assert_is_success();
+
+    let new_value: Option<u32> = test_engine
+        .call_method("get", env_args!(0 as usize))
+        .assert_is_success()
+        .get_return();
+
+    assert_eq!(new_value, Some(35));
+}
+
+#[test]
+fn test_insert() {
     let mut test_engine = instantiate_with_items();
 
     let mut expected_items: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6];
@@ -206,72 +240,6 @@ fn test_insert_items() {
     items = get_vec(&mut test_engine);
 
     assert_eq!(items, vec![1])
-}
-
-#[test]
-fn test_push_vec() {
-    let mut test_engine = instantiate_with_items();
-
-    let mut expected_items: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6];
-    let mut items: Vec<u32>;
-
-    let mut new_items = vec![7, 8, 9];
-    test_engine
-        .call_method("push_vec", env_args!(new_items.clone()))
-        .assert_is_success();
-    expected_items.append(&mut new_items);
-    items = get_vec(&mut test_engine);
-    assert_eq!(items, expected_items);
-
-    new_items = vec![10];
-    test_engine
-        .call_method("push_vec", env_args!(new_items.clone()))
-        .assert_is_success();
-    expected_items.append(&mut new_items);
-    items = get_vec(&mut test_engine);
-    assert_eq!(items, expected_items);
-
-    new_items = vec![11, 12, 13, 14];
-    test_engine
-        .call_method("push_vec", env_args!(new_items.clone()))
-        .assert_is_success();
-    expected_items.append(&mut new_items);
-    items = get_vec(&mut test_engine);
-    assert_eq!(items, expected_items);
-}
-
-#[test]
-fn test_get() {
-    let mut test_engine = instantiate_with_items();
-
-    for i in 0..7 {
-        println!("{}", i);
-        let ret: Option<u32> = test_engine
-            .call_method("get", env_args!(i as usize))
-            .assert_is_success()
-            .get_return();
-        assert_eq!(ret, Some(i as u32))
-    }
-    let ret: Option<i32> = test_engine
-        .call_method("get", env_args!(7 as usize))
-        .assert_is_success()
-        .get_return();
-    assert_eq!(ret, None);
-}
-
-#[test]
-fn test_get_mut() {
-    let mut test_engine = instantiate_with_items();
-    test_engine
-        .call_method("change_value_at", env_args!(0 as usize, 35 as u32))
-        .assert_is_success();
-
-    let new_value: Option<u32> = test_engine
-        .call_method("get", env_args!(0 as usize))
-        .assert_is_success()
-        .get_return();
-
-    assert_eq!(new_value, Some(35));
 }
 
 #[test]
@@ -352,3 +320,37 @@ fn test_pop_first_vec() {
 
     assert_eq!(popped, None);
 }
+
+#[test]
+fn test_push_vec() {
+    let mut test_engine = instantiate_with_items();
+
+    let mut expected_items: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6];
+    let mut items: Vec<u32>;
+
+    let mut new_items = vec![7, 8, 9];
+    test_engine
+        .call_method("push_vec", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    items = get_vec(&mut test_engine);
+    assert_eq!(items, expected_items);
+
+    new_items = vec![10];
+    test_engine
+        .call_method("push_vec", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    items = get_vec(&mut test_engine);
+    assert_eq!(items, expected_items);
+
+    new_items = vec![11, 12, 13, 14];
+    test_engine
+        .call_method("push_vec", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    items = get_vec(&mut test_engine);
+    assert_eq!(items, expected_items);
+}
+
+
