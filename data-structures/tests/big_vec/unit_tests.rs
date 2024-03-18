@@ -352,5 +352,3 @@ fn test_push_vec() {
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
 }
-
-

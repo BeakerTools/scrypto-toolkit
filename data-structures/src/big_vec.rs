@@ -394,83 +394,83 @@ impl<V: BigVecElement> BigVec<V> {
     /// let mut big_vec2 = BigVec::<i32>::new();
     /// big_vec1.append(big_vec2);
     /// ```#[test]
-fn test_pop_first_vec() {
-    let mut test_engine = instantiate_with_items();
+    fn test_pop_first_vec() {
+        let mut test_engine = instantiate_with_items();
 
-    let mut popped: Option<Vec<u32>> = test_engine
-        .call_method("pop_first_vec", env_args!())
-        .assert_is_success()
-        .get_return();
+        let mut popped: Option<Vec<u32>> = test_engine
+            .call_method("pop_first_vec", env_args!())
+            .assert_is_success()
+            .get_return();
 
-    let mut new_first: Option<u32> = test_engine
-        .call_method("get", env_args!(0 as usize))
-        .assert_is_success()
-        .get_return();
+        let mut new_first: Option<u32> = test_engine
+            .call_method("get", env_args!(0 as usize))
+            .assert_is_success()
+            .get_return();
 
-    let mut new_second: Option<u32> = test_engine
-        .call_method("get", env_args!(1 as usize))
-        .assert_is_success()
-        .get_return();
+        let mut new_second: Option<u32> = test_engine
+            .call_method("get", env_args!(1 as usize))
+            .assert_is_success()
+            .get_return();
 
-    let new_third: Option<u32> = test_engine
-        .call_method("get", env_args!(2 as usize))
-        .assert_is_success()
-        .get_return();
+        let new_third: Option<u32> = test_engine
+            .call_method("get", env_args!(2 as usize))
+            .assert_is_success()
+            .get_return();
 
-    let new_fifth: Option<u32> = test_engine
-        .call_method("get", env_args!(5 as usize))
-        .assert_is_success()
-        .get_return();
+        let new_fifth: Option<u32> = test_engine
+            .call_method("get", env_args!(5 as usize))
+            .assert_is_success()
+            .get_return();
 
-    assert_eq!(popped, Some(vec![0, 1, 2]));
-    assert_eq!(new_first, Some(3));
-    assert_eq!(new_second, Some(4));
-    assert_eq!(new_third, Some(5));
-    assert_eq!(new_fifth, None);
+        assert_eq!(popped, Some(vec![0, 1, 2]));
+        assert_eq!(new_first, Some(3));
+        assert_eq!(new_second, Some(4));
+        assert_eq!(new_third, Some(5));
+        assert_eq!(new_fifth, None);
 
-    popped = test_engine
-        .call_method("pop_first_vec", env_args!())
-        .assert_is_success()
-        .get_return();
+        popped = test_engine
+            .call_method("pop_first_vec", env_args!())
+            .assert_is_success()
+            .get_return();
 
-    new_first = test_engine
-        .call_method("get", env_args!(0 as usize))
-        .assert_is_success()
-        .get_return();
+        new_first = test_engine
+            .call_method("get", env_args!(0 as usize))
+            .assert_is_success()
+            .get_return();
 
-    new_second = test_engine
-        .call_method("get", env_args!(1 as usize))
-        .assert_is_success()
-        .get_return();
+        new_second = test_engine
+            .call_method("get", env_args!(1 as usize))
+            .assert_is_success()
+            .get_return();
 
-    assert_eq!(popped, Some(vec![3, 4, 5]));
-    assert_eq!(new_first, Some(6));
-    assert_eq!(new_second, None);
+        assert_eq!(popped, Some(vec![3, 4, 5]));
+        assert_eq!(new_first, Some(6));
+        assert_eq!(new_second, None);
 
-    test_engine
-        .call_method("push", env_args!(7 as u32))
-        .assert_is_success();
+        test_engine
+            .call_method("push", env_args!(7 as u32))
+            .assert_is_success();
 
-    popped = test_engine
-        .call_method("pop_first_vec", env_args!())
-        .assert_is_success()
-        .get_return();
+        popped = test_engine
+            .call_method("pop_first_vec", env_args!())
+            .assert_is_success()
+            .get_return();
 
-    new_first = test_engine
-        .call_method("get", env_args!(0 as usize))
-        .assert_is_success()
-        .get_return();
+        new_first = test_engine
+            .call_method("get", env_args!(0 as usize))
+            .assert_is_success()
+            .get_return();
 
-    assert_eq!(popped, Some(vec![6, 7]));
-    assert_eq!(new_first, None);
+        assert_eq!(popped, Some(vec![6, 7]));
+        assert_eq!(new_first, None);
 
-    popped = test_engine
-        .call_method("pop_first_vec", env_args!())
-        .assert_is_success()
-        .get_return();
+        popped = test_engine
+            .call_method("pop_first_vec", env_args!())
+            .assert_is_success()
+            .get_return();
 
-    assert_eq!(popped, None);
-}
+        assert_eq!(popped, None);
+    }
     pub fn append(&mut self, mut other: Self) {
         let mut index_to_push = self.vec_structure.len();
         self.vec_structure.append(&mut other.vec_structure);
