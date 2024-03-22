@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::path::Path;
 
 use radix_engine::transaction::{CommitResult, TransactionReceipt, TransactionResult};
@@ -489,7 +490,7 @@ impl TestEngine {
 
     pub(crate) fn update_data_from_result(&mut self, result: &CommitResult) {
         for component in result.new_component_addresses() {
-            if let Some(name) = self.get_metadata_value_of("name", component.clone().into()) {
+            if let Some(name) = self.get_metadata_value_of("name", (*component).into()) {
                 self.insert_component(name, *component)
             }
         }
@@ -572,10 +573,10 @@ impl TestEngine {
     fn update_resources_from_result(&mut self, result: &CommitResult) {
         // Update tracked resources
         for resource in result.new_resource_addresses() {
-            if let Some(name) = self.get_metadata_value_of("name", resource.clone().into()) {
+            if let Some(name) = self.get_metadata_value_of("name", (*resource).into()) {
                 self.insert_resource(name, *resource);
             }
-            if let Some(name) = self.get_metadata_value_of("symbol", resource.clone().into()) {
+            if let Some(name) = self.get_metadata_value_of("symbol", (*resource).into()) {
                 self.insert_resource(name, *resource);
             }
         }
@@ -592,18 +593,18 @@ impl TestEngine {
     }
 
     fn insert_resource(&mut self, name: String, resource_address: ResourceAddress) {
-        if self.resources.contains_key(&name.format()) {
-            panic!("Token with name {} already exists", name.format());
+        if let Entry::Vacant(e) = self.resources.entry(name.format()) {
+            e.insert(resource_address);
         } else {
-            self.resources.insert(name.format(), resource_address);
+            panic!("Token with name {} already exists", name.format());
         }
     }
 
     fn insert_component(&mut self, name: String, component_address: ComponentAddress) {
-        if self.components.contains_key(&name.format()) {
-            panic!("Component with name {} already exists", name.format());
+        if let Entry::Vacant(e) = self.components.entry(name.format()) {
+            e.insert(component_address);
         } else {
-            self.components.insert(name.format(), component_address);
+            panic!("Component with name {} already exists", name.format());
         }
     }
 }
