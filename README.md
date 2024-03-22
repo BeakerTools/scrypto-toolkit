@@ -18,10 +18,10 @@ To contribute please follow the [contribution guide](CONTRIBUTING.md). The follo
 
 ### Test Engine
 
-- [ ] Implement the `EnvironmentEncode` trait for objects implementing the `ScryptoSbor` trait
 - [ ] Implement a better way to deal with Buckets/Proofs return.
 - [ ] Implement a nice way of querying component states.
 - [ ] Deal with more transaction failures.
+- [ ] Enhance documentation and give more examples
 
 ### Maths
 
