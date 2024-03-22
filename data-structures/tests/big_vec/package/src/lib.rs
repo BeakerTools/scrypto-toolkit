@@ -80,6 +80,10 @@ mod big_vec {
             self.vec.push_vec(elements);
         }
 
+        pub fn push_vec_raw(&mut self, elements: Vec<u32>) {
+            self.vec.push_vec_raw(elements);
+        }
+
         pub fn len(&self) -> usize {
             self.vec.len()
         }

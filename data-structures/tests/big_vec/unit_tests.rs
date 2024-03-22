@@ -352,3 +352,24 @@ fn test_push_vec() {
     items = get_vec(&mut test_engine);
     assert_eq!(items, expected_items);
 }
+
+#[test]
+fn test_push_vec_raw() {
+    let mut test_engine = instantiate_with_items();
+
+    let mut expected_items: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6];
+    let mut expected_structure: Vec<usize> = vec![3, 3, 1];
+
+    let mut new_items = vec![7, 8];
+    test_engine
+        .call_method("push_vec_raw", env_args!(new_items.clone()))
+        .assert_is_success();
+    expected_items.append(&mut new_items);
+    expected_structure.push(2);
+    let items = get_vec(&mut test_engine);
+    let structure: Vec<usize> = test_engine
+        .call_method("structure", env_args!())
+        .get_return();
+    assert_eq!(items, expected_items);
+    assert_eq!(structure, expected_structure)
+}

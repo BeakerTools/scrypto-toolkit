@@ -153,13 +153,8 @@ impl<V: BigVecElement> BigVec<V> {
     /// assert_eq!(big_vec.get(&1).as_deref(), None);
     /// ```
     pub fn get(&self, index: &usize) -> Option<BigVecItemRef<'_, V>> {
-        match self.get_correct_indexes(index) {
-            None => None,
-            Some(indexes) => Some(BigVecItemRef::new(
-                self.vec_data.get(&indexes.0).unwrap(),
-                indexes.1,
-            )),
-        }
+        self.get_correct_indexes(index)
+            .map(|indexes| BigVecItemRef::new(self.vec_data.get(&indexes.0).unwrap(), indexes.1))
     }
 
     /// Retrieves a mutable reference to an item in the `BigVec`.
@@ -346,7 +341,7 @@ impl<V: BigVecElement> BigVec<V> {
     /// big_vec.push_vec(elements);
     /// ```
     pub fn push_vec(&mut self, mut elements: Vec<V>) {
-        let mut start_index = self.vec_structure.len();
+        let start_index = self.vec_structure.len();
         match self.vec_structure.last() {
             None => {}
             Some(vec_size) => {
@@ -368,6 +363,28 @@ impl<V: BigVecElement> BigVec<V> {
                 }
             }
         }
+
+        self.push_vec_raw(elements);
+    }
+
+    /// Pushes elements from a vector into a BigVec, organizing them into sub-vectors based on the configured capacity.
+    /// It does it without trying to fill the current last vector.
+    ///
+    /// # Arguments
+    ///
+    /// * `elements`: A vector of elements to be pushed into the internal data structure.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use data_structures::big_vec::BigVec;
+    ///
+    /// let mut big_vec = BigVec::<i32>::new();
+    /// let elements = vec![1, 2, 3, 4, 5, 6];
+    /// big_vec.push_vec_raw(elements);
+    /// ```
+    pub fn push_vec_raw(&mut self, mut elements: Vec<V>) {
+        let mut start_index = self.vec_structure.len();
 
         while !elements.is_empty() {
             let to_drain = min(elements.len(), self.capacity_per_vec);
@@ -395,12 +412,16 @@ impl<V: BigVecElement> BigVec<V> {
     /// big_vec1.append(big_vec2);
     /// ```
     pub fn append(&mut self, mut other: Self) {
-        let mut index_to_push = self.vec_structure.len();
-        self.vec_structure.append(&mut other.vec_structure);
-        for i in 0..other.vec_structure.len() {
-            let vec_data = other.vec_data.remove(&i).unwrap();
-            self.vec_data.insert(index_to_push, vec_data);
-            index_to_push += 1;
+        if other.capacity_per_vec == self.capacity_per_vec {
+            let mut index_to_push = self.vec_structure.len();
+            self.vec_structure.append(&mut other.vec_structure);
+            for i in 0..other.vec_structure.len() {
+                let vec_data = other.vec_data.remove(&i).unwrap();
+                self.vec_data.insert(index_to_push, vec_data);
+                index_to_push += 1;
+            }
+        } else {
+            panic!("Cannot append from a BigVec with a different structure")
         }
     }
 
