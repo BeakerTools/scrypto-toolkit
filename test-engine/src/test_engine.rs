@@ -466,12 +466,15 @@ impl TestEngine {
         manifest: TransactionManifestV1,
         with_trace: bool,
         initial_proofs: Vec<NonFungibleGlobalId>,
+        with_update: bool,
     ) -> TransactionReceipt {
         let receipt = self
             .engine_interface
             .execute_manifest(manifest, with_trace, initial_proofs);
-        if let TransactionResult::Commit(commit_result) = &receipt.result {
-            self.update_data_from_result(commit_result);
+        if with_update {
+            if let TransactionResult::Commit(commit_result) = &receipt.result {
+                self.update_data_from_result(commit_result);
+            }
         }
         receipt
     }
@@ -521,15 +524,16 @@ impl TestEngine {
             partial_call = partial_call.with_badge(badge)
         }
 
-        let receipt = partial_call.execute();
+        let receipt = partial_call.execute_no_update();
 
-        let receipt = receipt.assert_is_success();
+        let mut receipt = receipt.assert_is_success();
 
-        if let TransactionResult::Commit(commit) = &receipt.result {
-            let components: Vec<&ComponentAddress> =
+        if let TransactionResult::Commit(ref mut commit) = &mut receipt.result {
+            let mut components: Vec<&ComponentAddress> =
                 commit.new_component_addresses().iter().collect();
             if let Some(component) = components.first() {
                 self.components.insert(component_name.format(), **component);
+                components.remove(0);
             }
 
             if self.current_component.is_none() {

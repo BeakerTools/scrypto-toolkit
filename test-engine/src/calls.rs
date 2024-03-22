@@ -42,16 +42,28 @@ impl<'a> CallBuilder<'a> {
             self.manifest,
             self.with_trace,
             vec![self.caller.proof()],
+            true,
         );
 
-        if let TransactionResult::Commit(commit_result) = &receipt.result {
-            if !commit_result.application_logs.is_empty() {
-                println!("\nApplication logs:");
-                for (level, message) in &commit_result.application_logs {
-                    println!("| [{level}]: {message}")
-                }
-            }
-        }
+        Self::output_logs(&receipt);
+
+        receipt
+    }
+
+    pub(crate) fn execute_no_update(mut self) -> TransactionReceipt {
+        self.write_lock();
+        self.write_deposit();
+        self.write_badge();
+        self.output_manifest();
+
+        let receipt = self.test_engine.execute_call(
+            self.manifest,
+            self.with_trace,
+            vec![self.caller.proof()],
+            false,
+        );
+
+        Self::output_logs(&receipt);
 
         receipt
     }
@@ -268,6 +280,17 @@ impl<'a> CallBuilder<'a> {
                     Err(error) => {
                         panic!("Error when outputting manifest: {:?}", error);
                     }
+                }
+            }
+        }
+    }
+
+    fn output_logs(receipt: &TransactionReceipt) {
+        if let TransactionResult::Commit(commit_result) = &receipt.result {
+            if !commit_result.application_logs.is_empty() {
+                println!("\nApplication logs:");
+                for (level, message) in &commit_result.application_logs {
+                    println!("| [{level}]: {message}")
                 }
             }
         }
