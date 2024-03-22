@@ -6,6 +6,7 @@ use radix_engine::types::{
     dec, ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
     ResourceAddress, FAUCET, XRD,
 };
+use radix_engine_common::prelude::ScryptoDecode;
 use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;
@@ -439,6 +440,10 @@ impl TestEngine {
         self.components
             .get(self.current_component.as_ref().unwrap())
             .unwrap()
+    }
+
+    pub fn current_component_state<T: ScryptoDecode>(&self) -> T {
+        self.engine_interface.get_state(*self.current_component())
     }
 
     pub(crate) fn get_component_ref<E: EnvRef>(&self, name: E) -> ComponentAddress {

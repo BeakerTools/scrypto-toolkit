@@ -9,7 +9,8 @@ use radix_engine::types::{
 };
 use radix_engine_common::network::NetworkDefinition;
 use radix_engine_common::prelude::{
-    AddressBech32Decoder, ManifestAddressReservation, ManifestExpression, RESOURCE_PACKAGE,
+    AddressBech32Decoder, ManifestAddressReservation, ManifestExpression, ScryptoDecode,
+    RESOURCE_PACKAGE,
 };
 use radix_engine_common::to_manifest_value_and_unwrap;
 use radix_engine_interface::blueprints::package::PackageDefinition;
@@ -181,5 +182,9 @@ impl EngineInterface {
             );
 
         receipt.expect_commit(true).new_resource_addresses()[0]
+    }
+
+    pub fn get_state<T: ScryptoDecode>(&self, component_address: ComponentAddress) -> T {
+        self.test_runner.component_state(component_address)
     }
 }
