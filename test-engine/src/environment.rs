@@ -116,17 +116,7 @@ impl<E: EnvRef + Clone> Environment<E> {
             Environment::Resource(resource) => {
                 let resource_address = test_engine.get_resource(resource.clone());
                 (manifest_builder, Box::new(resource_address))
-            } /*
-              Environment::Vec(items) => {
-                  let mut ret = vec![];
-                  let mut mb = manifest_builder;
-                  for item in items {
-                      let (new_mb, new_item) = item.to_encode(test_engine, mb, caller);
-                      mb = new_mb;
-                      ret.push(new_item);
-                  }
-                  (mb, Box::new(ret))
-              }*/
+            }
         }
     }
 }
@@ -139,46 +129,9 @@ impl<E: EnvRef + Clone> EnvironmentEncode for Environment<E> {
         encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
     ) -> ManifestBuilder {
-        match self {
-            /*
-            Environment::Vec(elements) => {
-                let mut manifest_builder = manifest_builder;
-
-                encoder.write_value_kind(ValueKind::Array).expect("");
-                let size = elements.len();
-                let mut encoded = Vec::new();
-                for elem in elements {
-                    let (mb, encode) = elem.to_encode(test_engine, manifest_builder, caller);
-                    manifest_builder = mb;
-                    encoded.push(encode);
-                }
-
-                let mut encoded = encoded.iter();
-                match encoded.next() {
-                    None => {
-                        encoder.write_value_kind(ValueKind::I8).unwrap();
-                        encoder.write_size(size).expect("");
-                    }
-                    Some(elem) => {
-                        let encode = elem.as_ref();
-                        encode.encode_value_kind(encoder).expect("Error");
-                        encoder.write_size(size).expect("");
-                        encoder.encode_deeper_body(encode).expect("");
-                    }
-                }
-
-                for elem in encoded {
-                    encoder.encode_deeper_body(elem.as_ref()).expect("OK");
-                }
-                manifest_builder
-            }*/
-            _ => {
-                let (manifest_builder, encoded) =
-                    self.to_encode(test_engine, manifest_builder, caller);
-                encoder.encode(encoded.as_ref()).expect("Could not encode");
-                manifest_builder
-            }
-        }
+        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
+        encoder.encode(encoded.as_ref()).expect("Could not encode");
+        manifest_builder
     }
 }
 
