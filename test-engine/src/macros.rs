@@ -15,6 +15,18 @@ macro_rules! env_args {
 }
 
 #[macro_export]
+macro_rules! env_vec {
+    () => (
+        vec![]
+    );
+
+     ($( $x:expr ),*) => {{
+         use test_engine::environment::EnvVec;
+         EnvVec::from_vec(vec![$($x,)*])
+    }};
+}
+
+#[macro_export]
 macro_rules! global_package {
     ($name:ident, $path:expr) => {
         use test_engine::prelude::*;

@@ -1,16 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
-
-use radix_engine::types::{
-    ComponentAddress, Decimal, Hash, HashMap, HashSet, IndexMap, IndexSet, NonFungibleGlobalId,
-    NonFungibleLocalId, PackageAddress, PreciseDecimal, ResourceAddress,
-};
-use radix_engine::types::{Encode, ManifestCustomValueKind, ValueKind};
+use radix_engine::prelude::ValueKind;
+use radix_engine::types::{ComponentAddress, Decimal, NonFungibleLocalId};
+use radix_engine::types::{Encode, ManifestCustomValueKind};
 use radix_engine::types::{Encoder, ManifestEncoder};
-use radix_engine_interface::blueprints::resource::OwnerRole;
 use radix_engine_interface::count;
 use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
-use transaction::prelude::Categorize;
 
 use crate::environment_reference::EnvRef;
 use crate::manifest_args;
@@ -122,7 +116,17 @@ impl<E: EnvRef + Clone> Environment<E> {
             Environment::Resource(resource) => {
                 let resource_address = test_engine.get_resource(resource.clone());
                 (manifest_builder, Box::new(resource_address))
-            }
+            } /*
+              Environment::Vec(items) => {
+                  let mut ret = vec![];
+                  let mut mb = manifest_builder;
+                  for item in items {
+                      let (new_mb, new_item) = item.to_encode(test_engine, mb, caller);
+                      mb = new_mb;
+                      ret.push(new_item);
+                  }
+                  (mb, Box::new(ret))
+              }*/
         }
     }
 }
@@ -135,13 +139,60 @@ impl<E: EnvRef + Clone> EnvironmentEncode for Environment<E> {
         encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
     ) -> ManifestBuilder {
-        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
-        encoder.encode(encoded.as_ref()).expect("Could not encode");
-        manifest_builder
+        match self {
+            /*
+            Environment::Vec(elements) => {
+                let mut manifest_builder = manifest_builder;
+
+                encoder.write_value_kind(ValueKind::Array).expect("");
+                let size = elements.len();
+                let mut encoded = Vec::new();
+                for elem in elements {
+                    let (mb, encode) = elem.to_encode(test_engine, manifest_builder, caller);
+                    manifest_builder = mb;
+                    encoded.push(encode);
+                }
+
+                let mut encoded = encoded.iter();
+                match encoded.next() {
+                    None => {
+                        encoder.write_value_kind(ValueKind::I8).unwrap();
+                        encoder.write_size(size).expect("");
+                    }
+                    Some(elem) => {
+                        let encode = elem.as_ref();
+                        encode.encode_value_kind(encoder).expect("Error");
+                        encoder.write_size(size).expect("");
+                        encoder.encode_deeper_body(encode).expect("");
+                    }
+                }
+
+                for elem in encoded {
+                    encoder.encode_deeper_body(elem.as_ref()).expect("OK");
+                }
+                manifest_builder
+            }*/
+            _ => {
+                let (manifest_builder, encoded) =
+                    self.to_encode(test_engine, manifest_builder, caller);
+                encoder.encode(encoded.as_ref()).expect("Could not encode");
+                manifest_builder
+            }
+        }
     }
 }
 
-impl<E: EnvRef + Clone> EnvironmentEncode for Vec<Environment<E>> {
+pub struct EnvVec<E: EnvRef + Clone> {
+    elements: Vec<Environment<E>>,
+}
+
+impl<E: EnvRef + Clone> EnvVec<E> {
+    pub fn from_vec(elements: Vec<Environment<E>>) -> Self {
+        Self { elements }
+    }
+}
+
+impl<E: EnvRef + Clone> EnvironmentEncode for EnvVec<E> {
     fn encode(
         &self,
         test_engine: &TestEngine,
@@ -152,9 +203,9 @@ impl<E: EnvRef + Clone> EnvironmentEncode for Vec<Environment<E>> {
         let mut manifest_builder = manifest_builder;
 
         encoder.write_value_kind(ValueKind::Array).expect("");
-        let size = self.len();
+        let size = self.elements.len();
         let mut encoded = Vec::new();
-        for elem in self {
+        for elem in &self.elements {
             let (mb, encode) = elem.to_encode(test_engine, manifest_builder, caller);
             manifest_builder = mb;
             encoded.push(encode);
@@ -180,6 +231,40 @@ impl<E: EnvRef + Clone> EnvironmentEncode for Vec<Environment<E>> {
         manifest_builder
     }
 }
+
+impl<T: for<'a> Encode<ManifestCustomValueKind, ManifestEncoder<'a>>> EnvironmentEncode for T {
+    fn encode(
+        &self,
+        _test_engine: &TestEngine,
+        manifest_builder: ManifestBuilder,
+        encoder: &mut ManifestEncoder,
+        _caller: ComponentAddress,
+    ) -> ManifestBuilder {
+        encoder.encode(&self).unwrap();
+        manifest_builder
+    }
+}
+
+/*
+impl<T: Encode<ManifestCustomValueKind, VecEncoder<'_, ManifestCustomValueKind>>> EnvironmentEncode
+    for T
+{
+
+}
+
+
+impl<E: EnvRef + Clone> EnvironmentEncode for Vec<Environment<E>> {
+    fn encode(
+        &self,
+        test_engine: &TestEngine,
+        manifest_builder: ManifestBuilder,
+        encoder: &mut ManifestEncoder,
+        caller: ComponentAddress,
+    ) -> ManifestBuilder {
+
+    }
+}
+
 macro_rules! type_impl {
     ($type:ident) => {
         impl EnvironmentEncode for $type {
@@ -289,3 +374,4 @@ macro_rules!double_collection_impl {
 double_collection_impl!(BTreeMap,);
 double_collection_impl!(HashMap, Ord, std::hash::Hash);
 double_collection_impl!(IndexMap, std::hash::Hash, Eq, PartialEq);
+*/

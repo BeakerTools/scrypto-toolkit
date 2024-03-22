@@ -4,7 +4,7 @@ mod nft_marketplace_tests {
     use test_engine::environment::Environment;
     use test_engine::receipt_traits::Outcome;
     use test_engine::test_engine::TestEngine;
-    use test_engine::{env_args, global_package};
+    use test_engine::{env_args, env_vec, global_package};
 
     global_package!(NFT_MARKETPLACE_PACKAGE, "tests/nft_marketplace/package");
 
@@ -33,14 +33,14 @@ mod nft_marketplace_tests {
             "DutchAuction",
             "instantiate_dutch_auction",
             env_args![
-                vec![Environment::NonFungibleBucket(
+                env_vec![Environment::NonFungibleBucket(
                     "cars nft",
                     vec![car_id.unwrap()]
                 )],
                 Environment::Resource("xrd"),
                 dec!(10),
                 dec!(5),
-                10 as u64
+                10u64
             ],
         );
         test_engine.set_current_component("dutch auction");

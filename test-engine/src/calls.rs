@@ -144,12 +144,13 @@ impl<'a> CallBuilder<'a> {
 
         let manifest = manifest.call_method(component, method_name, manifest_arg);
 
-        let object_names = manifest.object_names();
+        let object_names = manifest.object_names().clone();
         let deposit_destination = *caller.address();
+        let transaction_manifest = manifest.build();
 
         Self {
             caller,
-            manifest: manifest.build(),
+            manifest: transaction_manifest,
             test_engine,
             fee_payer: FAUCET,
             fee_locked: dec!(5000),
