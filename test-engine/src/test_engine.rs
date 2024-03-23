@@ -16,7 +16,7 @@ use crate::account::Account;
 use crate::calls::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
-use crate::environment_reference::EnvRef;
+use crate::environment_reference::{EntityRef, EnvRef, ResourceRef};
 use crate::receipt_traits::Outcome;
 
 pub struct TestEngine {
@@ -280,31 +280,31 @@ impl TestEngine {
     /// Returns the balance of the current account in the given resource.
     ///
     /// # Arguments
-    /// * `resource`: reference name of the resource.
-    pub fn current_balance<E: EnvRef>(&mut self, resource: E) -> Decimal {
+    /// * `resource`: reference name or address of the resource.
+    pub fn current_balance<R: ResourceRef>(&mut self, resource: R) -> Decimal {
         let account = *self.current_account_address();
-        let resource = self.get_resource(resource);
+        let resource = resource.address(&self);
         self.engine_interface.balance(account, resource)
     }
 
-    /// Returns the balance of the given account in the given resource.
+    /// Returns the balance of the given entity in the given resource.
     ///
     /// # Arguments
-    /// * `account`: reference name of the account.
-    /// * `resource`: reference name of the resource.
-    pub fn balance_of<E: EnvRef, G: EnvRef>(&mut self, account: E, resource: E) -> Decimal {
-        let account = *self.get_account(account);
-        let resource = self.get_resource(resource);
-        self.engine_interface.balance(account, resource)
+    /// * `entity`: reference name or address of the entity.
+    /// * `resource`: reference name or address of the resource.
+    pub fn balance_of<E: EntityRef, R: ResourceRef>(&mut self, entity: E, resource: R) -> Decimal {
+        let entity = entity.address(&self);
+        let resource = resource.address(&self);
+        self.engine_interface.balance(entity, resource)
     }
 
     /// Returns the IDs of the given non-fungible resource owned by the current account.
     ///
     /// # Arguments
-    /// * `resource`: reference name of the non-fungible resource.
-    pub fn current_ids_balance<E: EnvRef>(&mut self, resource: E) -> Vec<NonFungibleLocalId> {
+    /// * `resource`: reference name or address of the non-fungible resource.
+    pub fn current_ids_balance<R: ResourceRef>(&mut self, resource: R) -> Vec<NonFungibleLocalId> {
         let account = *self.current_account_address();
-        let resource = self.get_resource(resource);
+        let resource = resource.address(&self);
         self.engine_interface.nft_ids(account, resource)
     }
 
@@ -313,14 +313,14 @@ impl TestEngine {
     /// # Arguments
     /// * `account`: reference name of the account.
     /// * `resource`: reference name of the resource.
-    pub fn ids_balance_of<E: EnvRef, G: EnvRef>(
+    pub fn ids_balance_of<E: EntityRef, R: ResourceRef>(
         &mut self,
-        account: E,
-        resource: E,
+        entity: E,
+        resource: R,
     ) -> Vec<NonFungibleLocalId> {
-        let account = self.get_account(account);
-        let resource = self.get_resource(resource);
-        self.engine_interface.nft_ids(*account, resource)
+        let entity = entity.address(&self);
+        let resource = resource.address(&self);
+        self.engine_interface.nft_ids(entity, resource)
     }
 
     /// Moves to next epoch.
@@ -446,6 +446,11 @@ impl TestEngine {
         self.engine_interface.get_state(*self.current_component())
     }
 
+    pub fn get_component_state<T: ScryptoDecode, E: EnvRef>(&self, component_name: E) -> T {
+        self.engine_interface
+            .get_state(self.get_component_ref(component_name))
+    }
+
     pub(crate) fn get_component_ref<E: EnvRef>(&self, name: E) -> ComponentAddress {
         let name = name.format();
         match self.accounts.get(&name) {
@@ -504,6 +509,18 @@ impl TestEngine {
         }
 
         self.update_resources_from_result(result);
+    }
+
+    pub(crate) fn get_entity<E: EnvRef>(&self, entity: E) -> ComponentAddress {
+        match self.accounts.get(&entity.format()) {
+            Some(account) => *(account.address()),
+            None => match self.components.get(&entity.format()) {
+                Some(component) => *component,
+                None => {
+                    panic!("There is no component with name {}!", entity.format())
+                }
+            },
+        }
     }
 
     fn create_component<E1: EnvRef, E2: EnvRef>(
@@ -566,14 +583,14 @@ impl TestEngine {
                 panic!(
                     "Could not publish package {}. Transaction was rejected with error: {}",
                     name.format(),
-                    reject.reason.format()
+                    reject.reason
                 );
             }
             TransactionResult::Abort(abort) => {
                 panic!(
                     "Could not publish package {}. Transaction was aborted with error: {}",
                     name.format(),
-                    abort.reason.format()
+                    abort.reason
                 );
             }
         }
