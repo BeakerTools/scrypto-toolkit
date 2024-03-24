@@ -14,7 +14,7 @@ use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, Trans
 
 use crate::account::Account;
 use crate::environment::EnvironmentEncode;
-use crate::environment_reference::EnvRef;
+use crate::environment_reference::{EnvRef, ResourceRef};
 use crate::manifest_args;
 use crate::test_engine::TestEngine;
 
@@ -105,8 +105,8 @@ impl<'a> CallBuilder<'a> {
     ///
     /// # Arguments
     /// * `badge_name` : reference name of the resource used as admin badge.
-    pub fn with_badge<E: EnvRef>(mut self, badge_name: E) -> Self {
-        let resource = self.test_engine.get_resource(badge_name);
+    pub fn with_badge<R: ResourceRef>(mut self, badge: R) -> Self {
+        let resource = badge.address(self.test_engine);
         let ids_tree: Option<BTreeSet<NonFungibleLocalId>> = if resource.is_fungible() {
             None
         } else {

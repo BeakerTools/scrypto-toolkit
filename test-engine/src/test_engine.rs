@@ -146,12 +146,12 @@ impl TestEngine {
         )
     }
 
-    pub fn new_component_with_badge<E1: EnvRef, E2: EnvRef>(
+    pub fn new_component_with_badge<E: EnvRef, R: ResourceRef>(
         &mut self,
-        component_name: E1,
+        component_name: E,
         blueprint_name: &str,
         instantiation_function: &str,
-        badge: E2,
+        badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
         self.create_component(
@@ -199,10 +199,10 @@ impl TestEngine {
     /// * `method_name`: name of the method.
     /// * `admin_badge`: reference name of the resource to use as an admin badge.
     /// * `args`: environment arguments to call the method.
-    pub fn call_method_with_badge<E: EnvRef>(
+    pub fn call_method_with_badge<R: ResourceRef>(
         &mut self,
         method_name: &str,
-        admin_badge: E,
+        admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
         self.custom_method_call(method_name, args)
@@ -523,13 +523,13 @@ impl TestEngine {
         }
     }
 
-    fn create_component<E1: EnvRef, E2: EnvRef>(
+    fn create_component<E: EnvRef, R: ResourceRef>(
         &mut self,
-        component_name: E1,
+        component_name: E,
         blueprint_name: &str,
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
-        opt_badge: Option<E2>,
+        opt_badge: Option<R>,
     ) -> TransactionReceipt {
         let caller = self.current_account().clone();
         let package = *self.current_package();
