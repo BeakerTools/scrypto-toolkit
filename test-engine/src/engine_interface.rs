@@ -9,10 +9,12 @@ use radix_engine::types::{
 };
 use radix_engine_common::network::NetworkDefinition;
 use radix_engine_common::prelude::{
-    AddressBech32Decoder, ManifestAddressReservation, ManifestExpression, ScryptoDecode,
-    RESOURCE_PACKAGE,
+    AddressBech32Decoder, ManifestAddressReservation, ManifestExpression, Own, ScryptoDecode,
+    ScryptoEncode, RESOURCE_PACKAGE,
 };
 use radix_engine_common::to_manifest_value_and_unwrap;
+use radix_engine_common::types::Round;
+use radix_engine_interface::blueprints::consensus_manager::TimePrecisionV2;
 use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{
     BlueprintId, FromPublicKey, FungibleResourceManagerCreateWithInitialSupplyManifestInput,
@@ -20,7 +22,7 @@ use radix_engine_interface::prelude::{
     FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT,
     FUNGIBLE_RESOURCE_MANAGER_CREATE_WITH_INITIAL_SUPPLY_IDENT,
 };
-use scrypto_unit::{DefaultTestRunner, TestRunnerBuilder};
+use scrypto_unit::{CustomGenesis, DefaultTestRunner, TestRunnerBuilder};
 use transaction::builder::ManifestBuilder;
 use transaction::model::{InstructionV1, TransactionManifestV1};
 use transaction::prelude::{
@@ -36,8 +38,16 @@ pub struct EngineInterface {
 
 impl EngineInterface {
     pub fn new() -> Self {
+        let test_runner_builder = TestRunnerBuilder::new()
+            .with_custom_genesis(CustomGenesis::default(
+                Epoch::of(1),
+                CustomGenesis::default_consensus_manager_config(),
+            ))
+            .without_trace()
+            .build();
+
         Self {
-            test_runner: TestRunnerBuilder::new().without_trace().build(),
+            test_runner: test_runner_builder,
         }
     }
 
@@ -123,6 +133,16 @@ impl EngineInterface {
         self.test_runner.get_current_epoch()
     }
 
+    pub fn advance_time(&mut self, time: u64) {
+        let current_time = self
+            .test_runner
+            .get_current_time(TimePrecisionV2::Second)
+            .seconds_since_unix_epoch;
+
+        self.test_runner
+            .advance_to_round_at_timestamp(Round::of(1), (current_time + (time as i64)) * 1000);
+    }
+
     pub fn create_pre_allocated_token(
         &mut self,
         address: &str,
@@ -186,5 +206,13 @@ impl EngineInterface {
 
     pub fn get_state<T: ScryptoDecode>(&self, component_address: ComponentAddress) -> T {
         self.test_runner.component_state(component_address)
+    }
+
+    pub fn get_kvs_entry<K: ScryptoEncode, V: ScryptoEncode + ScryptoDecode>(
+        &self,
+        kv_store_id: Own,
+        key: &K,
+    ) -> Option<V> {
+        self.test_runner.get_kv_store_entry(kv_store_id, key)
     }
 }

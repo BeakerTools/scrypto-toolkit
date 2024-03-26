@@ -36,7 +36,7 @@ impl<T: EnvRef> EntityRef for T {
 
 impl EntityRef for ComponentAddress {
     fn address(&self, _test_engine: &TestEngine) -> ComponentAddress {
-        self.clone()
+        *self
     }
 }
 
@@ -58,7 +58,7 @@ impl<T: EnvRef> ResourceRef for T {
 
 impl ResourceRef for ResourceAddress {
     fn address(&self, _test_engine: &TestEngine) -> ResourceAddress {
-        self.clone()
+        *self
     }
 }
 

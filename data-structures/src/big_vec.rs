@@ -21,10 +21,10 @@ impl<T: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
 
 #[derive(ScryptoSbor)]
 pub struct BigVec<V: BigVecElement> {
-    start_index: usize,
-    capacity_per_vec: usize,
-    vec_structure: Vec<usize>,
-    vec_data: KeyValueStore<usize, Vec<V>>,
+    pub start_index: usize,
+    pub capacity_per_vec: usize,
+    pub vec_structure: Vec<usize>,
+    pub vec_data: KeyValueStore<usize, Vec<V>>,
 }
 
 impl<V: BigVecElement> BigVec<V> {

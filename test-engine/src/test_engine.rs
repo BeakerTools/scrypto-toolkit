@@ -6,7 +6,7 @@ use radix_engine::types::{
     dec, ComponentAddress, Decimal, GlobalAddress, HashMap, NonFungibleLocalId, PackageAddress,
     ResourceAddress, FAUCET, XRD,
 };
-use radix_engine_common::prelude::ScryptoDecode;
+use radix_engine_common::prelude::{Own, ScryptoDecode, ScryptoEncode};
 use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use transaction::model::TransactionManifestV1;
@@ -197,7 +197,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `method_name`: name of the method.
-    /// * `admin_badge`: reference name of the resource to use as an admin badge.
+    /// * `admin_badge`: reference name or address of the resource to use as an admin badge.
     /// * `args`: environment arguments to call the method.
     pub fn call_method_with_badge<R: ResourceRef>(
         &mut self,
@@ -283,7 +283,7 @@ impl TestEngine {
     /// * `resource`: reference name or address of the resource.
     pub fn current_balance<R: ResourceRef>(&mut self, resource: R) -> Decimal {
         let account = *self.current_account_address();
-        let resource = resource.address(&self);
+        let resource = resource.address(self);
         self.engine_interface.balance(account, resource)
     }
 
@@ -293,8 +293,8 @@ impl TestEngine {
     /// * `entity`: reference name or address of the entity.
     /// * `resource`: reference name or address of the resource.
     pub fn balance_of<E: EntityRef, R: ResourceRef>(&mut self, entity: E, resource: R) -> Decimal {
-        let entity = entity.address(&self);
-        let resource = resource.address(&self);
+        let entity = entity.address(self);
+        let resource = resource.address(self);
         self.engine_interface.balance(entity, resource)
     }
 
@@ -304,7 +304,7 @@ impl TestEngine {
     /// * `resource`: reference name or address of the non-fungible resource.
     pub fn current_ids_balance<R: ResourceRef>(&mut self, resource: R) -> Vec<NonFungibleLocalId> {
         let account = *self.current_account_address();
-        let resource = resource.address(&self);
+        let resource = resource.address(self);
         self.engine_interface.nft_ids(account, resource)
     }
 
@@ -312,14 +312,14 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `account`: reference name of the account.
-    /// * `resource`: reference name of the resource.
+    /// * `resource`: reference name or address of the resource.
     pub fn ids_balance_of<E: EntityRef, R: ResourceRef>(
         &mut self,
         entity: E,
         resource: R,
     ) -> Vec<NonFungibleLocalId> {
-        let entity = entity.address(&self);
-        let resource = resource.address(&self);
+        let entity = entity.address(self);
+        let resource = resource.address(self);
         self.engine_interface.nft_ids(entity, resource)
     }
 
@@ -337,6 +337,10 @@ impl TestEngine {
         let epoch = self.engine_interface.get_epoch();
         self.engine_interface
             .set_epoch(epoch.after(epochs).unwrap());
+    }
+
+    pub fn advance_time(&mut self, time: u64) {
+        self.engine_interface.advance_time(time);
     }
 
     /// Jumps back epochs by the given amount.
@@ -442,13 +446,30 @@ impl TestEngine {
             .unwrap()
     }
 
+    /// Returns the state of the current component.
     pub fn current_component_state<T: ScryptoDecode>(&self) -> T {
         self.engine_interface.get_state(*self.current_component())
     }
 
-    pub fn get_component_state<T: ScryptoDecode, E: EnvRef>(&self, component_name: E) -> T {
-        self.engine_interface
-            .get_state(self.get_component_ref(component_name))
+    /// Returns the state of the given component.
+    ///
+    /// # Arguments
+    /// * `component`: commponent reference or address for which to get the state.
+    pub fn get_component_state<T: ScryptoDecode, E: EntityRef>(&self, component: E) -> T {
+        self.engine_interface.get_state(component.address(self))
+    }
+
+    /// Returns the value of a KeyValueStore at a given key.
+    ///
+    /// # Arguments
+    /// * `kv_store_id`: id of the KeyValueStore.
+    /// * `key`: key of the value to get.
+    pub fn get_kvs_value_at<K: ScryptoEncode, V: ScryptoEncode + ScryptoDecode>(
+        &self,
+        kv_store_id: Own,
+        key: &K,
+    ) -> Option<V> {
+        self.engine_interface.get_kvs_entry(kv_store_id, key)
     }
 
     pub(crate) fn get_component_ref<E: EnvRef>(&self, name: E) -> ComponentAddress {
