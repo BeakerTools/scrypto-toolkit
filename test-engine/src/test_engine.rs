@@ -624,7 +624,7 @@ impl TestEngine {
                 self.insert_resource(name, *resource);
             }
             if let Some(name) = self.get_metadata_value_of("symbol", (*resource).into()) {
-                self.insert_resource(name, *resource);
+                self.try_insert_resource(name, *resource);
             }
         }
     }
@@ -644,6 +644,12 @@ impl TestEngine {
             e.insert(resource_address);
         } else {
             panic!("Token with name {} already exists", name.format());
+        }
+    }
+
+    fn try_insert_resource(&mut self, name: String, resource_address: ResourceAddress) {
+        if let Entry::Vacant(e) = self.resources.entry(name.format()) {
+            e.insert(resource_address);
         }
     }
 
