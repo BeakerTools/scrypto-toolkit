@@ -173,9 +173,10 @@ impl TestEngine {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        let caller = self.current_account().clone();
         let component = *self.current_component();
-        CallBuilder::call_method(self, caller, component, method_name, args).execute()
+        CallBuilder::new(self)
+            .call_method_internal(component, method_name, args)
+            .execute()
     }
 
     /// Creates a call builder for a method call.
@@ -183,14 +184,14 @@ impl TestEngine {
     /// # Arguments
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn custom_method_call(
+    pub fn call_chainable_method(
         &mut self,
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder {
-        let caller = self.current_account().clone();
+        // let caller = self.current_account().clone();
         let component = *self.current_component();
-        CallBuilder::call_method(self, caller, component, method_name, args)
+        CallBuilder::new(self).call_method_internal(component, method_name, args)
     }
 
     /// Calls a method of the current component with a given admin badge.
@@ -205,15 +206,17 @@ impl TestEngine {
         admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.custom_method_call(method_name, args)
+        // let component = &self.current_component.as_ref().unwrap().clone();
+        self.call_chainable_method(method_name, args)
             .with_badge(admin_badge)
             .execute()
     }
 
     /// Calls faucet with the current account.
     pub fn call_faucet(&mut self) {
-        let caller = self.current_account().clone();
-        CallBuilder::call_method(self, caller, FAUCET, "free", vec![])
+        // let caller = self.current_account().clone();
+        CallBuilder::new(self)
+            .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
             .execute();
     }
@@ -356,7 +359,7 @@ impl TestEngine {
         self.engine_interface.set_epoch(epoch)
     }
 
-    /// Returns the [`PackageAddress`] of the given pacresourcekage.
+    /// Returns the [`PackageAddress`] of the given package.
     ///
     /// # Arguments
     /// * `name`: reference name of the package.
@@ -454,7 +457,7 @@ impl TestEngine {
     /// Returns the state of the given component.
     ///
     /// # Arguments
-    /// * `component`: commponent reference or address for which to get the state.
+    /// * `component`: component reference or address for which to get the state.
     pub fn get_component_state<T: ScryptoDecode, E: EntityRef>(&self, component: E) -> T {
         self.engine_interface.get_state(component.address(self))
     }
@@ -552,11 +555,9 @@ impl TestEngine {
         args: Vec<Box<dyn EnvironmentEncode>>,
         opt_badge: Option<R>,
     ) -> TransactionReceipt {
-        let caller = self.current_account().clone();
+        // let caller = self.current_account().clone();
         let package = *self.current_package();
-        let mut partial_call = CallBuilder::call_function(
-            self,
-            caller,
+        let mut partial_call = CallBuilder::new(self).call_function_internal(
             package,
             blueprint_name,
             instantiation_function,
