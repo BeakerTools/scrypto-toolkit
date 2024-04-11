@@ -19,7 +19,7 @@ use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{
     BlueprintId, FromPublicKey, FungibleResourceManagerCreateWithInitialSupplyManifestInput,
     FungibleResourceRoles, MetadataValue, NonFungibleData, NonFungibleGlobalId, OwnerRole,
-    ToMetadataEntry, FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT,
+    FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT,
     FUNGIBLE_RESOURCE_MANAGER_CREATE_WITH_INITIAL_SUPPLY_IDENT,
 };
 use scrypto_unit::{CustomGenesis, DefaultTestRunner, TestRunnerBuilder};

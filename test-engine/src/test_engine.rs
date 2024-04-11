@@ -8,7 +8,7 @@ use radix_engine::types::{
 };
 use radix_engine_common::prelude::{Own, ScryptoDecode, ScryptoEncode};
 use radix_engine_interface::blueprints::package::PackageDefinition;
-use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId, ToMetadataEntry};
+use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
 use radix_engine_interface::types::NonFungibleData;
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::NetworkDefinition;
