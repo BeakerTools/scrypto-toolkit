@@ -30,13 +30,25 @@ pub struct CallBuilder<'a> {
     fee_locked: Decimal,
     test_engine: &'a mut TestEngine,
     output_manifest: Option<(String, String)>,
-    admin_badge: Option<(ResourceAddress, Option<BTreeSet<NonFungibleLocalId>>)>,
+    admin_badge: Vec<(ResourceAddress, Option<BTreeSet<NonFungibleLocalId>>)>,
     with_trace: bool,
     deposit_destination: ComponentAddress,
     manifest_data: Option<TransactionManifestData>,
 }
 
 impl<'a> CallBuilder<'a> {
+    pub fn withdraw(mut self, resource: &str, amount: Decimal) -> Self {
+        let account = self.test_engine.current_account().address();
+        let resource_address = self.test_engine.get_resource(resource);
+        self.manifest_builder = self.manifest_builder.call_method(
+            *account,
+            "withdraw",
+            manifest_args!(resource_address, amount),
+        );
+
+        self
+    }
+
     /// Calls a method of the current component.
     ///
     /// # Arguments
@@ -58,7 +70,7 @@ impl<'a> CallBuilder<'a> {
     /// * `component_name`: reference name of the component.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_component_method(
+    pub fn call_method_with_component(
         self,
         component_name: &str,
         method_name: &str,
@@ -74,11 +86,7 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_chainable_method(
-        self,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> Self {
+    pub fn call(self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> Self {
         let component = *self.test_engine.current_component();
         self.call_method_internal(component, method_name, args)
     }
@@ -89,7 +97,7 @@ impl<'a> CallBuilder<'a> {
     /// * `component_name`: reference name of the component.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_chainable_component_method(
+    pub fn call_with_component(
         self,
         component_name: &str,
         method_name: &str,
@@ -99,28 +107,31 @@ impl<'a> CallBuilder<'a> {
         self.call_method_internal(component, method_name, args)
     }
 
-    /// Sets the current package.
-    ///
-    /// # Arguments
-    /// * `name`: reference name of the account.
-    pub fn set_current_package<E: EnvRef>(&mut self, name: E) {
-        self.test_engine.set_current_package(name);
-    }
+    // /// Sets the current package.
+    // ///
+    // /// # Arguments
+    // /// * `name`: reference name of the account.
+    // pub fn set_current_package<E: EnvRef>(self, name: E) -> Self {
+    //     self.test_engine.set_current_package(name);
+    //     self
+    // }
 
-    /// Sets the current account.
-    ///
-    /// # Arguments
-    /// * `name`: reference name of the account.
-    pub fn set_current_account<E: EnvRef>(&mut self, name: E) {
-        self.test_engine.set_current_account(name);
-    }
+    // /// Sets the current account.
+    // ///
+    // /// # Arguments
+    // /// * `name`: reference name of the account.
+    // pub fn set_current_account<E: EnvRef>(self, name: E) -> Self {
+    //     self.test_engine.set_current_account(name);
+    //     self
+    // }
 
     /// Sets the current component
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
-    pub fn set_current_component<E: EnvRef>(&mut self, name: E) {
+    pub fn set_current_component<E: EnvRef>(self, name: E) -> Self {
         self.test_engine.set_current_component(name);
+        self
     }
 
     pub fn execute(mut self) -> TransactionReceipt {
@@ -223,7 +234,7 @@ impl<'a> CallBuilder<'a> {
             )
         };
 
-        self.admin_badge = Some((resource, ids_tree));
+        self.admin_badge.push((resource, ids_tree));
         self
     }
 
@@ -247,7 +258,7 @@ impl<'a> CallBuilder<'a> {
             fee_locked: dec!(5000),
             test_engine,
             output_manifest: None,
-            admin_badge: None,
+            admin_badge: vec![],
             with_trace: false,
             manifest_data: None,
         }
@@ -354,28 +365,25 @@ impl<'a> CallBuilder<'a> {
     fn write_badge(&mut self) {
         let manifest = &mut self.manifest_data.as_mut().unwrap().transaction_manifest;
 
-        match &self.admin_badge {
-            None => {}
-            Some((badge, opt_ids)) => {
-                if badge.is_fungible() {
-                    manifest.instructions.insert(
-                        1,
-                        transaction::model::InstructionV1::CallMethod {
-                            address: DynamicGlobalAddress::from(*self.caller.address()),
-                            method_name: "create_proof_of_amount".to_string(),
-                            args: manifest_args!(badge, Decimal::one()).resolve(),
-                        },
-                    )
-                } else {
-                    manifest.instructions.insert(
-                        1,
-                        transaction::model::InstructionV1::CallMethod {
-                            address: DynamicGlobalAddress::from(*self.caller.address()),
-                            method_name: "create_proof_of_non_fungibles".to_string(),
-                            args: manifest_args!(badge, opt_ids.clone().unwrap()).resolve(),
-                        },
-                    );
-                }
+        for (badge, opt_ids) in &self.admin_badge {
+            if badge.is_fungible() {
+                manifest.instructions.insert(
+                    1,
+                    transaction::model::InstructionV1::CallMethod {
+                        address: DynamicGlobalAddress::from(*self.caller.address()),
+                        method_name: "create_proof_of_amount".to_string(),
+                        args: manifest_args!(badge, Decimal::one()).resolve(),
+                    },
+                )
+            } else {
+                manifest.instructions.insert(
+                    1,
+                    transaction::model::InstructionV1::CallMethod {
+                        address: DynamicGlobalAddress::from(*self.caller.address()),
+                        method_name: "create_proof_of_non_fungibles".to_string(),
+                        args: manifest_args!(badge, opt_ids.clone().unwrap()).resolve(),
+                    },
+                );
             }
         }
     }

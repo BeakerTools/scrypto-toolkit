@@ -24,9 +24,13 @@ pub enum Environment<E: EnvRef + Clone> {
     Account(E),
     Component(E),
     Package(E),
+    WorkTopFungibleBucket(E, Decimal),
     FungibleBucket(E, Decimal),
+    WorktopNonFungibleBucket(E, Vec<NonFungibleLocalId>),
     NonFungibleBucket(E, Vec<NonFungibleLocalId>),
+    AuthZoneFungibleProof(E, Decimal),
     FungibleProof(E, Decimal),
+    AuthZoneNonFungibleProof(E, Vec<NonFungibleLocalId>),
     NonFungibleProof(E, Vec<NonFungibleLocalId>),
     Resource(E),
 }
@@ -42,6 +46,10 @@ impl<E: EnvRef + Clone> Environment<E> {
         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
     ) {
         match self {
+            Environment::Resource(resource) => {
+                let resource_address = test_engine.get_resource(resource.clone());
+                (manifest_builder, Box::new(resource_address))
+            }
             Environment::Account(address) => {
                 let account = *test_engine.get_account(address.clone());
                 (manifest_builder, Box::new(account))
@@ -53,6 +61,15 @@ impl<E: EnvRef + Clone> Environment<E> {
             Environment::Package(address) => {
                 let package = test_engine.get_package(address.clone());
                 (manifest_builder, Box::new(package))
+            }
+            Environment::WorkTopFungibleBucket(resource, amount) => {
+                let resource_address = test_engine.get_resource(resource.clone());
+                let (manifest_builder, bucket) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
+                        resource_address,
+                        amount: *amount,
+                    });
+                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
             Environment::FungibleBucket(resource, amount) => {
                 let resource_address = test_engine.get_resource(resource.clone());
@@ -66,6 +83,16 @@ impl<E: EnvRef + Clone> Environment<E> {
                         resource_address,
                         amount: *amount,
                     });
+                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+            }
+            Environment::WorktopNonFungibleBucket(resource, ids) => {
+                let resource_address = test_engine.get_resource(resource.clone());
+                let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::TakeNonFungiblesFromWorktop {
+                        resource_address,
+                        ids: ids.clone(),
+                    },
+                );
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
             Environment::NonFungibleBucket(resource, ids) => {
@@ -83,6 +110,17 @@ impl<E: EnvRef + Clone> Environment<E> {
                 );
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
+            Environment::AuthZoneFungibleProof(resource, amount) => {
+                let resource_address = test_engine.get_resource(resource.clone());
+
+                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::CreateProofFromAuthZoneOfAmount {
+                        amount: *amount,
+                        resource_address,
+                    },
+                );
+                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+            }
             Environment::FungibleProof(resource, amount) => {
                 let resource_address = test_engine.get_resource(resource.clone());
                 let manifest_builder = manifest_builder.call_method(
@@ -94,6 +132,16 @@ impl<E: EnvRef + Clone> Environment<E> {
                     InstructionV1::CreateProofFromAuthZoneOfAmount {
                         amount: *amount,
                         resource_address,
+                    },
+                );
+                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+            }
+            Environment::AuthZoneNonFungibleProof(resource, ids) => {
+                let resource_address = test_engine.get_resource(resource.clone());
+                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
+                        resource_address,
+                        ids: ids.clone(),
                     },
                 );
                 (manifest_builder, Box::new(proof.new_proof.unwrap()))
@@ -112,10 +160,6 @@ impl<E: EnvRef + Clone> Environment<E> {
                     },
                 );
                 (manifest_builder, Box::new(proof.new_proof.unwrap()))
-            }
-            Environment::Resource(resource) => {
-                let resource_address = test_engine.get_resource(resource.clone());
-                (manifest_builder, Box::new(resource_address))
             }
         }
     }

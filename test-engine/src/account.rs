@@ -6,7 +6,7 @@ use radix_engine_interface::types::ComponentAddress;
 
 use crate::engine_interface::EngineInterface;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Account {
     component_address: ComponentAddress,
     public_key: Secp256k1PublicKey,
