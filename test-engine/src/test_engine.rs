@@ -270,7 +270,6 @@ impl TestEngine {
         admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        // let component = &self.current_component.as_ref().unwrap().clone();
         self.call(method_name, args)
             .with_badge(admin_badge)
             .execute()
@@ -282,6 +281,43 @@ impl TestEngine {
             .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
             .execute();
+    }
+
+    /// Transfers some fungible resources form the current account to the given recipient.
+    ///
+    /// # Arguments
+    /// * `recipient`: resources to transfer to.
+    /// * `resource`: reference name of the resource to transfer.
+    /// * `amount`: amount of resources to transfer.
+    pub fn transfer<E: EnvRef, R: EnvRef + Clone + 'static, D: TryInto<Decimal>>(
+        &mut self,
+        recipient: E,
+        resource: R,
+        amount: D,
+    ) -> TransactionReceipt
+    where
+        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+    {
+        CallBuilder::new(self)
+            .transfer(recipient, resource, amount)
+            .execute()
+    }
+
+    /// Transfers non-fungible resources form the current account to the given recipient.
+    ///
+    /// # Arguments
+    /// * `recipient`: resources to transfer to.
+    /// * `resource`: reference name of the resource to transfer.
+    /// * `ids`: ids to transfer.
+    pub fn transfer_non_fungibles<E: EnvRef, R: EnvRef + Clone + 'static>(
+        &mut self,
+        recipient: E,
+        resource: R,
+        ids: Vec<NonFungibleLocalId>,
+    ) -> TransactionReceipt {
+        CallBuilder::new(self)
+            .transfer_non_fungibles(recipient, resource, ids)
+            .execute()
     }
 
     /// Creates a new token with an initial_distribution and a reference name.
@@ -343,13 +379,11 @@ impl TestEngine {
         }
     }
 
-    /// Creates a new token with a given resource address.
+    /// Registers a new token with a given resource address.
     ///
     /// # Arguments
     /// * `token_name`: name that will be used to reference the token.
-    /// * `initial_distribution`: initial distribution of the token.
     /// * `resource_address`: address of the resource.
-    /// * `network`: network on which the resource has the given address.
     pub fn register_token<E: EnvRef>(&mut self, token_name: E, resource_address: ResourceAddress) {
         match self.resources.get(&token_name.format()) {
             Some(_) => {
@@ -470,12 +504,12 @@ impl TestEngine {
         mut data: Vec<Box<dyn EnvironmentEncode>>,
         badge: R2,
     ) -> TransactionReceipt {
-        let caller = self.current_account().clone();
         let resource = resource.address(self);
         let mut args: Vec<Box<dyn EnvironmentEncode>> =
             vec![Box::new(id), Box::new(field_name.to_string())];
         args.append(&mut data);
-        CallBuilder::call_method(self, caller, resource, "update_non_fungible_data", args)
+        CallBuilder::new(self)
+            .call_with_component(resource, "update_non_fungible_data", args)
             .with_badge(badge)
             .execute()
     }
@@ -597,22 +631,6 @@ impl TestEngine {
         key: &K,
     ) -> Option<V> {
         self.engine_interface.get_kvs_entry(kv_store_id, key)
-    }
-
-    pub(crate) fn get_component_ref<E: EnvRef>(&self, name: E) -> ComponentAddress {
-        let name = name.format();
-        match self.accounts.get(&name) {
-            None => match self.components.get(&name) {
-                None => {
-                    panic!(
-                        "There is no environment reference with name {}",
-                        name.format()
-                    )
-                }
-                Some(component) => *component,
-            },
-            Some(account) => *account.address(),
-        }
     }
 
     pub(crate) fn current_account(&self) -> &Account {

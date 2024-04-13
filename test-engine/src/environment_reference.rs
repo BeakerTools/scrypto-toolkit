@@ -1,6 +1,6 @@
 use crate::test_engine::TestEngine;
 use radix_engine_common::prelude::ResourceAddress;
-use radix_engine_common::types::ComponentAddress;
+use radix_engine_common::types::{ComponentAddress, GlobalAddress};
 
 pub trait EnvRef {
     fn format(&self) -> String;
@@ -65,5 +65,27 @@ impl ResourceRef for ResourceAddress {
 impl<'a> ResourceRef for &'a ResourceAddress {
     fn address(&self, _test_engine: &TestEngine) -> ResourceAddress {
         **self
+    }
+}
+
+pub trait GlobalAddressRef {
+    fn address(&self, test_engine: &TestEngine) -> GlobalAddress;
+}
+
+impl<T: EntityRef> GlobalAddressRef for T {
+    fn address(&self, test_engine: &TestEngine) -> GlobalAddress {
+        GlobalAddress::from(self.address(test_engine))
+    }
+}
+
+impl GlobalAddressRef for ResourceAddress {
+    fn address(&self, _test_engine: &TestEngine) -> GlobalAddress {
+        GlobalAddress::from(*self)
+    }
+}
+
+impl<'a> GlobalAddressRef for &'a ResourceAddress {
+    fn address(&self, _test_engine: &TestEngine) -> GlobalAddress {
+        GlobalAddress::from(**self)
     }
 }

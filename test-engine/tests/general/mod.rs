@@ -1,5 +1,7 @@
+use radix_engine::types::dec;
 use radix_engine_common::network::NetworkDefinition;
 use radix_engine_common::prelude::ResourceAddress;
+use test_engine::receipt_traits::Outcome;
 use test_engine::test_engine::TestEngine;
 
 #[test]
@@ -20,4 +22,19 @@ fn test_pre_allocated_token() {
 
     let address_2 = test_engine.get_resource("test_token");
     assert_eq!(address, address_2)
+}
+
+#[test]
+fn test_transfer() {
+    let mut test_engine = TestEngine::new();
+
+    test_engine.new_token("Test token", 1000);
+
+    test_engine.new_account("Recipient");
+    assert_eq!(test_engine.balance_of("Recipient", "Test token"), dec!(0));
+
+    test_engine
+        .transfer("Recipient", "Test token", dec!(10))
+        .assert_is_success();
+    assert_eq!(test_engine.balance_of("Recipient", "Test token"), dec!(10));
 }

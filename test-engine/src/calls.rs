@@ -7,14 +7,15 @@ use radix_engine::types::{
     ManifestExpression, ManifestValueKind, NonFungibleLocalId, PackageAddress, ResourceAddress,
     FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
 };
+
 use transaction::builder::{ManifestBuilder, ResolvableGlobalAddress};
 use transaction::manifest::decompiler::ManifestObjectNames;
 use transaction::manifest::dumper::dump_manifest_to_file_system;
 use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, TransactionManifestV1};
 
 use crate::account::Account;
-use crate::environment::EnvironmentEncode;
-use crate::environment_reference::{EnvRef, ResourceRef};
+use crate::environment::{Environment, EnvironmentEncode};
+use crate::environment_reference::{EntityRef, EnvRef, GlobalAddressRef, ResourceRef};
 use crate::manifest_args;
 use crate::test_engine::TestEngine;
 
@@ -37,6 +38,23 @@ pub struct CallBuilder<'a> {
 }
 
 impl<'a> CallBuilder<'a> {
+    pub fn new(test_engine: &'a mut TestEngine) -> Self {
+        let caller = test_engine.current_account().clone();
+
+        Self {
+            deposit_destination: *caller.address(),
+            caller,
+            manifest_builder: ManifestBuilder::new(),
+            fee_payer: FAUCET,
+            fee_locked: dec!(5000),
+            test_engine,
+            output_manifest: None,
+            admin_badge: vec![],
+            with_trace: false,
+            manifest_data: None,
+        }
+    }
+
     pub fn withdraw(mut self, resource: &str, amount: Decimal) -> Self {
         let account = self.test_engine.current_account().address();
         let resource_address = self.test_engine.get_resource(resource);
@@ -67,16 +85,16 @@ impl<'a> CallBuilder<'a> {
     /// Calls a method of the given component.
     ///
     /// # Arguments
-    /// * `component_name`: reference name of the component.
+    /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_method_with_component(
+    pub fn call_method_with_component<G: GlobalAddressRef>(
         self,
-        component_name: &str,
+        entity_name: G,
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        let component = self.test_engine.get_component_ref(component_name);
+        let component = entity_name.address(self.test_engine);
         self.call_method_internal(component, method_name, args)
             .execute()
     }
@@ -94,16 +112,16 @@ impl<'a> CallBuilder<'a> {
     /// Creates a call builder for a method call of the given component and skip the transaction execution.
     ///
     /// # Arguments
-    /// * `component_name`: reference name of the component.
+    /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_with_component(
+    pub fn call_with_component<G: GlobalAddressRef>(
         self,
-        component_name: &str,
+        entity_name: G,
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
-        let component = self.test_engine.get_component_ref(component_name);
+        let component = entity_name.address(self.test_engine);
         self.call_method_internal(component, method_name, args)
     }
 
@@ -198,13 +216,63 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `locker`: reference name of the component that will pay the fees.
     /// * `amount`: amount of fees to lock.
-    pub fn lock_fee<E: EnvRef, D: TryInto<Decimal>>(mut self, locker: E, amount: D) -> Self
+    pub fn lock_fee<E: EntityRef, D: TryInto<Decimal>>(mut self, locker: E, amount: D) -> Self
     where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
-        self.fee_payer = self.test_engine.get_component_ref(locker);
+        self.fee_payer = locker.address(self.test_engine);
         self.fee_locked = amount.try_into().unwrap();
         self
+    }
+
+    /// Transfers fungible resources form the current account to the given recipient.
+    ///
+    /// # Arguments
+    /// * `recipient`: resources to transfer to.
+    /// * `resource`: reference name of the resource to transfer.
+    /// * `amount`: amount to transfer.
+    pub fn transfer<E: EnvRef, R: EnvRef + Clone + 'static, D: TryInto<Decimal>>(
+        self,
+        recipient: E,
+        resource: R,
+        amount: D,
+    ) -> Self
+    where
+        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+    {
+        self.call_with_component(
+            recipient,
+            "try_deposit_or_abort",
+            vec![
+                Box::new(Environment::FungibleBucket(
+                    resource.clone(),
+                    amount.try_into().unwrap(),
+                )),
+                Box::new(None::<u64>),
+            ],
+        )
+    }
+
+    /// Transfers non-fungible resources form the current account to the given recipient.
+    ///
+    /// # Arguments
+    /// * `recipient`: resources to transfer to.
+    /// * `resource`: reference name of the resource to transfer.
+    /// * `ids`: ids to transfer.
+    pub fn transfer_non_fungibles<E: EnvRef, R: EnvRef + Clone + 'static>(
+        self,
+        recipient: E,
+        resource: R,
+        ids: Vec<NonFungibleLocalId>,
+    ) -> Self {
+        self.call_with_component(
+            recipient,
+            "try_deposit_or_abort",
+            vec![
+                Box::new(Environment::NonFungibleBucket(resource, ids)),
+                Box::new(None::<u64>),
+            ],
+        )
     }
 
     /// Outputs the manifest to the given path.
@@ -247,26 +315,9 @@ impl<'a> CallBuilder<'a> {
         self
     }
 
-    pub fn new(test_engine: &'a mut TestEngine) -> Self {
-        let caller = test_engine.current_account().clone();
-
-        Self {
-            deposit_destination: *caller.address(),
-            caller,
-            manifest_builder: ManifestBuilder::new(),
-            fee_payer: FAUCET,
-            fee_locked: dec!(5000),
-            test_engine,
-            output_manifest: None,
-            admin_badge: vec![],
-            with_trace: false,
-            manifest_data: None,
-        }
-    }
-
     pub(crate) fn call_method_internal(
         mut self,
-        component: ComponentAddress,
+        component: impl ResolvableGlobalAddress,
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> Self {
