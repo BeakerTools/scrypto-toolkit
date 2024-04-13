@@ -9,6 +9,7 @@ use radix_engine::types::{
 use radix_engine_common::prelude::{Own, ScryptoDecode, ScryptoEncode};
 use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{MetadataValue, NonFungibleGlobalId};
+use radix_engine_interface::types::NonFungibleData;
 use transaction::model::TransactionManifestV1;
 use transaction::prelude::NetworkDefinition;
 
@@ -439,7 +440,47 @@ impl TestEngine {
         self.engine_interface.set_epoch(epoch)
     }
 
-    /// Returns the [`PackageAddress`] of the given package.
+    /// Returns an NFT's non-fungible data.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name or address of the resource of the NFT.
+    /// * `id`: local id of the NFT.
+    pub fn get_non_fungible_data<R: ResourceRef, T: NonFungibleData>(
+        &mut self,
+        resource: R,
+        id: NonFungibleLocalId,
+    ) -> T {
+        self.engine_interface
+            .get_non_fungible_data(resource.address(self), id)
+    }
+
+    /// Updates a field of an NFT's non-fungible data.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name or address of the resource of the NFT.
+    /// * `id`: local id of the NFT.
+    /// * `field_name`: name of the field to update.
+    /// * `data`: new data for this field.
+    /// * `badge`: reference name or address of the badge needed to make the update.
+    pub fn update_non_fungible_data<R1: ResourceRef, R2: ResourceRef>(
+        &mut self,
+        resource: R1,
+        id: NonFungibleLocalId,
+        field_name: &str,
+        mut data: Vec<Box<dyn EnvironmentEncode>>,
+        badge: R2,
+    ) -> TransactionReceipt {
+        let caller = self.current_account().clone();
+        let resource = resource.address(self);
+        let mut args: Vec<Box<dyn EnvironmentEncode>> =
+            vec![Box::new(id), Box::new(field_name.to_string())];
+        args.append(&mut data);
+        CallBuilder::call_method(self, caller, resource, "update_non_fungible_data", args)
+            .with_badge(badge)
+            .execute()
+    }
+
+    /// Returns the [`PackageAddress`] of the given pacresourcekage.
     ///
     /// # Arguments
     /// * `name`: reference name of the package.
@@ -710,7 +751,7 @@ impl TestEngine {
                 self.insert_resource(name, *resource);
             }
             if let Some(name) = self.get_metadata_value_of("symbol", (*resource).into()) {
-                self.insert_resource(name, *resource);
+                self.try_insert_resource(name, *resource);
             }
         }
     }
@@ -730,6 +771,12 @@ impl TestEngine {
             e.insert(resource_address);
         } else {
             panic!("Token with name {} already exists", name.format());
+        }
+    }
+
+    fn try_insert_resource(&mut self, name: String, resource_address: ResourceAddress) {
+        if let Entry::Vacant(e) = self.resources.entry(name.format()) {
+            e.insert(resource_address);
         }
     }
 

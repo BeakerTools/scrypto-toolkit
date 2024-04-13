@@ -11,7 +11,7 @@ To use the library, add the following dev dependency to the `Cargo.toml` file
 test-engine = { git = "https://github.com/BeakerDAO/scrypto-toolkit", branch = "main"}
 ```
 
-# Features
+# Main Features
 
 ## Basics
 
@@ -270,3 +270,7 @@ To understand how to use this library, tests on some `scrypto-examples` packages
 - [Gumball Machine](tests/gumball_machine/unit_tests.rs)
 - [Radiswap](tests/radiswap/unit_tests.rs)
 - [NFT Marketplace](tests/nft_marketplace/unit_tests.rs)
+
+More features and broader test examples can be found at the following repos:
+
+- [Shardz NFT project](https://github.com/Radix-Shardz/scrypto-blueprints)

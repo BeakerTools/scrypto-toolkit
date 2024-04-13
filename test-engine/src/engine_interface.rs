@@ -18,7 +18,7 @@ use radix_engine_interface::blueprints::consensus_manager::TimePrecisionV2;
 use radix_engine_interface::blueprints::package::PackageDefinition;
 use radix_engine_interface::prelude::{
     BlueprintId, FromPublicKey, FungibleResourceManagerCreateWithInitialSupplyManifestInput,
-    FungibleResourceRoles, MetadataValue, NonFungibleGlobalId, OwnerRole,
+    FungibleResourceRoles, MetadataValue, NonFungibleData, NonFungibleGlobalId, OwnerRole,
     FUNGIBLE_RESOURCE_MANAGER_BLUEPRINT,
     FUNGIBLE_RESOURCE_MANAGER_CREATE_WITH_INITIAL_SUPPLY_IDENT,
 };
@@ -214,5 +214,13 @@ impl EngineInterface {
         key: &K,
     ) -> Option<V> {
         self.test_runner.get_kv_store_entry(kv_store_id, key)
+    }
+
+    pub fn get_non_fungible_data<T: NonFungibleData>(
+        &mut self,
+        resource_address: ResourceAddress,
+        id: NonFungibleLocalId,
+    ) -> T {
+        self.test_runner.get_non_fungible_data(resource_address, id)
     }
 }

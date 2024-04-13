@@ -7,7 +7,7 @@ use radix_engine::types::{
     ManifestExpression, ManifestValueKind, NonFungibleLocalId, PackageAddress, ResourceAddress,
     FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
 };
-use transaction::builder::ManifestBuilder;
+use transaction::builder::{ManifestBuilder, ResolvableGlobalAddress};
 use transaction::manifest::decompiler::ManifestObjectNames;
 use transaction::manifest::dumper::dump_manifest_to_file_system;
 use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, TransactionManifestV1};
