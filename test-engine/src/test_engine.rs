@@ -143,7 +143,7 @@ impl TestEngine {
             blueprint_name,
             instantiation_function,
             args,
-            None::<E>,
+            |c| c,
         )
     }
 
@@ -160,8 +160,39 @@ impl TestEngine {
             blueprint_name,
             instantiation_function,
             args,
-            Some(badge),
+            |c| c.with_badge(badge),
         )
+    }
+
+    /// Instantiates a new component of the current package with a reference name.
+    ///
+    /// # Arguments
+    /// * `component_name`: name that will be used to reference the component.
+    /// * `blueprint_name`: name of the blueprint.
+    /// * `instantiation_function`: name of the function that instantiates the component.
+    /// * `args`: environment arguments to instantiate the component.
+    /// * `callback`: function that modifies the call_builder before execution.
+    pub fn new_custom_component<E: EnvRef>(
+        &mut self,
+        component_name: E,
+        blueprint_name: &str,
+        instantiation_function: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+        callback: impl FnOnce(CallBuilder) -> CallBuilder,
+    ) -> TransactionReceipt {
+        self.create_component(
+            component_name,
+            blueprint_name,
+            instantiation_function,
+            args,
+            callback,
+        )
+    }
+
+    /// Creates a call builder.
+    ///
+    pub fn call_builder(&mut self) -> CallBuilder {
+        CallBuilder::new(self)
     }
 
     /// Calls a method of the current component.
@@ -174,9 +205,27 @@ impl TestEngine {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        let caller = self.current_account().clone();
         let component = *self.current_component();
-        CallBuilder::call_method(self, caller, component, method_name, args).execute()
+        CallBuilder::new(self)
+            .call_method_internal(component, method_name, args)
+            .execute()
+    }
+
+    /// Calls a method of the current component.
+    ///
+    /// # Arguments
+    /// * `method_name`: name of the method.
+    /// * `args`: environment arguments to call the method.
+    pub fn call_method_with_component(
+        &mut self,
+        component_name: &str,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        let component = self.get_component(component_name);
+        CallBuilder::new(self)
+            .call_method_internal(component, method_name, args)
+            .execute()
     }
 
     /// Creates a call builder for a method call.
@@ -184,14 +233,29 @@ impl TestEngine {
     /// # Arguments
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn custom_method_call(
+    pub fn call(
         &mut self,
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder {
-        let caller = self.current_account().clone();
+        // let caller = self.current_account().clone();
         let component = *self.current_component();
-        CallBuilder::call_method(self, caller, component, method_name, args)
+        CallBuilder::new(self).call_method_internal(component, method_name, args)
+    }
+
+    /// Calls a method of the current component.
+    ///
+    /// # Arguments
+    /// * `method_name`: name of the method.
+    /// * `args`: environment arguments to call the method.
+    pub fn call_with_component(
+        &mut self,
+        component_name: &str,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> CallBuilder {
+        let component = self.get_component(component_name);
+        CallBuilder::new(self).call_method_internal(component, method_name, args)
     }
 
     /// Calls a method of the current component with a given admin badge.
@@ -206,15 +270,16 @@ impl TestEngine {
         admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.custom_method_call(method_name, args)
+        // let component = &self.current_component.as_ref().unwrap().clone();
+        self.call(method_name, args)
             .with_badge(admin_badge)
             .execute()
     }
 
     /// Calls faucet with the current account.
     pub fn call_faucet(&mut self) {
-        let caller = self.current_account().clone();
-        CallBuilder::call_method(self, caller, FAUCET, "free", vec![])
+        CallBuilder::new(self)
+            .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
             .execute();
     }
@@ -274,6 +339,24 @@ impl TestEngine {
                     &account,
                 );
                 self.resources.insert(token_name.format(), token_address);
+            }
+        }
+    }
+
+    /// Creates a new token with a given resource address.
+    ///
+    /// # Arguments
+    /// * `token_name`: name that will be used to reference the token.
+    /// * `initial_distribution`: initial distribution of the token.
+    /// * `resource_address`: address of the resource.
+    /// * `network`: network on which the resource has the given address.
+    pub fn register_token<E: EnvRef>(&mut self, token_name: E, resource_address: ResourceAddress) {
+        match self.resources.get(&token_name.format()) {
+            Some(_) => {
+                panic!("Token with name {} already exists", token_name.format());
+            }
+            None => {
+                self.resources.insert(token_name.format(), resource_address);
             }
         }
     }
@@ -434,27 +517,30 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the account.
-    pub fn set_current_account<E: EnvRef>(&mut self, name: E) {
+    pub fn set_current_account<E: EnvRef>(&mut self, name: E) -> CallBuilder {
         self.current_account = name.format();
         self.get_account(name);
+        CallBuilder::new(self)
     }
 
     /// Sets the current component
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
-    pub fn set_current_component<E: EnvRef>(&mut self, name: E) {
+    pub fn set_current_component<E: EnvRef>(&mut self, name: E) -> CallBuilder {
         self.current_component = Some(name.format());
         self.get_component(name);
+        CallBuilder::new(self)
     }
 
     /// Sets the current package.
     ///
     /// # Arguments
     /// * `name`: reference name of the account.
-    pub fn set_current_package<E: EnvRef>(&mut self, name: E) {
+    pub fn set_current_package<E: EnvRef>(&mut self, name: E) -> CallBuilder {
         self.current_package = Some(name.format());
         self.get_package(name);
+        CallBuilder::new(self)
     }
 
     /// Returns the [`ResourceAddress`] of the given resource.
@@ -495,7 +581,7 @@ impl TestEngine {
     /// Returns the state of the given component.
     ///
     /// # Arguments
-    /// * `component`: commponent reference or address for which to get the state.
+    /// * `component`: component reference or address for which to get the state.
     pub fn get_component_state<T: ScryptoDecode, E: EntityRef>(&self, component: E) -> T {
         self.engine_interface.get_state(component.address(self))
     }
@@ -585,28 +671,28 @@ impl TestEngine {
         }
     }
 
-    fn create_component<E: EnvRef, R: ResourceRef>(
+    fn create_component<E: EnvRef>(
         &mut self,
         component_name: E,
         blueprint_name: &str,
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
-        opt_badge: Option<R>,
+        callback: impl FnOnce(CallBuilder) -> CallBuilder,
     ) -> TransactionReceipt {
-        let caller = self.current_account().clone();
+        // let caller = self.current_account().clone();
         let package = *self.current_package();
-        let mut partial_call = CallBuilder::call_function(
-            self,
-            caller,
+        let mut partial_call = CallBuilder::new(self).call_function_internal(
             package,
             blueprint_name,
             instantiation_function,
             args,
         );
 
-        if let Some(badge) = opt_badge {
-            partial_call = partial_call.with_badge(badge)
-        }
+        partial_call = callback(partial_call);
+
+        // if let Some(badge) = opt_badge {
+        //     partial_call = partial_call.with_badge(badge)
+        // }
 
         let receipt = partial_call.execute_no_update();
 
