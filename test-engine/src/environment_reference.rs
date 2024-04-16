@@ -2,89 +2,92 @@ use crate::test_engine::TestEngine;
 use radix_engine_common::prelude::ResourceAddress;
 use radix_engine_common::types::{ComponentAddress, GlobalAddress};
 
-pub trait EnvRef {
+///
+pub trait Reference {
     fn format(&self) -> String;
 }
 
-impl EnvRef for String {
+/// Reference to a global entity (account or component).
+pub trait EntityReference {
+    fn address(&self, test_engine: &TestEngine) -> ComponentAddress;
+}
+
+/// Reference to a resource.
+pub trait ResourceReference {
+    fn address(&self, test_engine: &TestEngine) -> ResourceAddress;
+}
+
+/// Reference to a global address (account, component or resource)
+pub trait GlobalAddressReference {
+    fn address(&self, test_engine: &TestEngine) -> GlobalAddress;
+}
+
+impl Reference for String {
     fn format(&self) -> String {
         self.to_string().to_lowercase().replace(['_', ' '], "")
     }
 }
 
-impl<'a> EnvRef for &'a String {
+impl<'a> Reference for &'a String {
     fn format(&self) -> String {
         (*self).format()
     }
 }
 
-impl<'a> EnvRef for &'a str {
+impl<'a> Reference for &'a str {
     fn format(&self) -> String {
         self.to_string().format()
     }
 }
 
-pub trait EntityRef {
-    fn address(&self, test_engine: &TestEngine) -> ComponentAddress;
-}
-
-impl<T: EnvRef> EntityRef for T {
+impl<T: Reference> EntityReference for T {
     fn address(&self, test_engine: &TestEngine) -> ComponentAddress {
         test_engine.get_entity(self.format())
     }
 }
 
-impl EntityRef for ComponentAddress {
+impl EntityReference for ComponentAddress {
     fn address(&self, _test_engine: &TestEngine) -> ComponentAddress {
         *self
     }
 }
 
-impl<'a> EntityRef for &'a ComponentAddress {
+impl<'a> EntityReference for &'a ComponentAddress {
     fn address(&self, _test_engine: &TestEngine) -> ComponentAddress {
         **self
     }
 }
-
-pub trait ResourceRef {
-    fn address(&self, test_engine: &TestEngine) -> ResourceAddress;
-}
-
-impl<T: EnvRef> ResourceRef for T {
+impl<T: Reference> ResourceReference for T {
     fn address(&self, test_engine: &TestEngine) -> ResourceAddress {
         test_engine.get_resource(self.format())
     }
 }
 
-impl ResourceRef for ResourceAddress {
+impl ResourceReference for ResourceAddress {
     fn address(&self, _test_engine: &TestEngine) -> ResourceAddress {
         *self
     }
 }
 
-impl<'a> ResourceRef for &'a ResourceAddress {
+impl<'a> ResourceReference for &'a ResourceAddress {
     fn address(&self, _test_engine: &TestEngine) -> ResourceAddress {
         **self
     }
 }
 
-pub trait GlobalAddressRef {
-    fn address(&self, test_engine: &TestEngine) -> GlobalAddress;
-}
-
-impl<T: EntityRef> GlobalAddressRef for T {
+impl<T: EntityReference> GlobalAddressReference for T {
     fn address(&self, test_engine: &TestEngine) -> GlobalAddress {
         GlobalAddress::from(self.address(test_engine))
     }
 }
 
-impl GlobalAddressRef for ResourceAddress {
+impl GlobalAddressReference for ResourceAddress {
     fn address(&self, _test_engine: &TestEngine) -> GlobalAddress {
         GlobalAddress::from(*self)
     }
 }
 
-impl<'a> GlobalAddressRef for &'a ResourceAddress {
+impl<'a> GlobalAddressReference for &'a ResourceAddress {
     fn address(&self, _test_engine: &TestEngine) -> GlobalAddress {
         GlobalAddress::from(**self)
     }

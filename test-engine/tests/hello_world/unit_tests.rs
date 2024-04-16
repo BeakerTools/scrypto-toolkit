@@ -1,6 +1,7 @@
 mod hello_word_tests {
     use radix_engine::types::Decimal;
     use test_engine::env_args;
+    use test_engine::prelude::MethodCaller;
     use test_engine::receipt_traits::Outcome;
     use test_engine::test_engine::TestEngine;
 

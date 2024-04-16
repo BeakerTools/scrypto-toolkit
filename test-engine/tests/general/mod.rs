@@ -13,7 +13,7 @@ fn test_pre_allocated_token() {
         43, 68, 5, 66, 3, 186, 89, 238, 225, 122,
     ]);
 
-    test_engine.add_token(
+    test_engine.new_token_with_address(
         "test_token",
         1,
         "resource_tdx_2_1t5937l2ydfe8rxjsh060r6dlxdwqscjc9dzq2ssrhfv7act63say5g",
