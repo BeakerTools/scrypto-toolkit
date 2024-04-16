@@ -6,8 +6,8 @@ use radix_engine_interface::count;
 use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
 
-use crate::environment_reference::Reference;
 use crate::manifest_args;
+use crate::references::ReferenceName;
 use crate::test_engine::TestEngine;
 
 pub trait EnvironmentEncode {
@@ -20,7 +20,7 @@ pub trait EnvironmentEncode {
     ) -> ManifestBuilder;
 }
 
-pub enum Environment<E: Reference + Clone> {
+pub enum Environment<E: ReferenceName + Clone> {
     Account(E),
     Component(E),
     Package(E),
@@ -35,7 +35,7 @@ pub enum Environment<E: Reference + Clone> {
     Resource(E),
 }
 
-impl<E: Reference + Clone> Environment<E> {
+impl<E: ReferenceName + Clone> Environment<E> {
     fn to_encode<'a>(
         &self,
         test_engine: &TestEngine,
@@ -165,7 +165,7 @@ impl<E: Reference + Clone> Environment<E> {
     }
 }
 
-impl<E: Reference + Clone> EnvironmentEncode for Environment<E> {
+impl<E: ReferenceName + Clone> EnvironmentEncode for Environment<E> {
     fn encode(
         &self,
         test_engine: &TestEngine,
@@ -179,17 +179,17 @@ impl<E: Reference + Clone> EnvironmentEncode for Environment<E> {
     }
 }
 
-pub struct EnvVec<E: Reference + Clone> {
+pub struct EnvVec<E: ReferenceName + Clone> {
     elements: Vec<Environment<E>>,
 }
 
-impl<E: Reference + Clone> EnvVec<E> {
+impl<E: ReferenceName + Clone> EnvVec<E> {
     pub fn from_vec(elements: Vec<Environment<E>>) -> Self {
         Self { elements }
     }
 }
 
-impl<E: Reference + Clone> EnvironmentEncode for EnvVec<E> {
+impl<E: ReferenceName + Clone> EnvironmentEncode for EnvVec<E> {
     fn encode(
         &self,
         test_engine: &TestEngine,

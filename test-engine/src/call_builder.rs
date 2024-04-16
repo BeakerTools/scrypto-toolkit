@@ -15,10 +15,8 @@ use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, Trans
 
 use crate::account::Account;
 use crate::environment::{Environment, EnvironmentEncode};
-use crate::environment_reference::{
-    EntityReference, GlobalAddressReference, Reference, ResourceReference,
-};
 use crate::manifest_args;
+use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
 
 struct TransactionManifestData {
@@ -90,7 +88,7 @@ impl<'a> CallBuilder<'a> {
     /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_method_with_component<G: GlobalAddressReference>(
+    pub fn call_method_with_component<G: GlobalReference>(
         self,
         entity_name: G,
         method_name: &str,
@@ -117,7 +115,7 @@ impl<'a> CallBuilder<'a> {
     /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_with_component<G: GlobalAddressReference>(
+    pub fn call_with_component<G: GlobalReference>(
         self,
         entity_name: G,
         method_name: &str,
@@ -149,7 +147,7 @@ impl<'a> CallBuilder<'a> {
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
-    pub fn set_current_component<E: Reference>(self, name: E) -> Self {
+    pub fn set_current_component<E: ReferenceName>(self, name: E) -> Self {
         self.test_engine.set_current_component(name);
         self
     }
@@ -208,7 +206,7 @@ impl<'a> CallBuilder<'a> {
     ///
     /// # Arguments
     /// * `account`: reference name of the account to which deposit the batch.
-    pub fn deposit_batch<E: Reference>(mut self, account: E) -> Self {
+    pub fn deposit_batch<E: ReferenceName>(mut self, account: E) -> Self {
         self.deposit_destination = *self.test_engine.get_account(account);
         self
     }
@@ -218,7 +216,11 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `locker`: reference name of the component that will pay the fees.
     /// * `amount`: amount of fees to lock.
-    pub fn lock_fee<E: EntityReference, D: TryInto<Decimal>>(mut self, locker: E, amount: D) -> Self
+    pub fn lock_fee<E: ComponentReference, D: TryInto<Decimal>>(
+        mut self,
+        locker: E,
+        amount: D,
+    ) -> Self
     where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
@@ -233,7 +235,7 @@ impl<'a> CallBuilder<'a> {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `amount`: amount to transfer.
-    pub fn transfer<E: Reference, R: Reference + Clone + 'static, D: TryInto<Decimal>>(
+    pub fn transfer<E: ReferenceName, R: ReferenceName + Clone + 'static, D: TryInto<Decimal>>(
         self,
         recipient: E,
         resource: R,
@@ -261,7 +263,7 @@ impl<'a> CallBuilder<'a> {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `ids`: ids to transfer.
-    pub fn transfer_non_fungibles<E: Reference, R: Reference + Clone + 'static>(
+    pub fn transfer_non_fungibles<E: ReferenceName, R: ReferenceName + Clone + 'static>(
         self,
         recipient: E,
         resource: R,

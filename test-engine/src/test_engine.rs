@@ -14,14 +14,12 @@ use transaction::model::TransactionManifestV1;
 use transaction::prelude::NetworkDefinition;
 
 use crate::account::Account;
-use crate::calls::CallBuilder;
+use crate::call_builder::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
-use crate::environment_reference::{
-    EntityReference, GlobalAddressReference, Reference, ResourceReference,
-};
 use crate::method_call::MethodCaller;
 use crate::receipt_traits::Outcome;
+use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 
 pub struct TestEngine {
     engine_interface: EngineInterface,
@@ -67,7 +65,7 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: name that will be used to reference the package.
     /// * `package`: compiled package data.
-    pub fn with_package<E: Reference>(name: E, package: &(Vec<u8>, PackageDefinition)) -> Self {
+    pub fn with_package<N: ReferenceName>(name: N, package: &(Vec<u8>, PackageDefinition)) -> Self {
         let mut test_engine = Self::new();
         test_engine.add_global_package(name, package);
 
@@ -79,7 +77,7 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: name that will be used to reference the package.
     /// * `path`: path of the package.
-    pub fn new_package<E: Reference, P: AsRef<Path>>(&mut self, name: E, path: P) {
+    pub fn new_package<N: ReferenceName, P: AsRef<Path>>(&mut self, name: N, path: P) {
         match self.packages.get(&name.format()) {
             Some(_) => {
                 panic!("A package with name {} already exists", name.format());
@@ -96,9 +94,9 @@ impl TestEngine {
     /// # Arguments
     /// * `name`: name that will be used to reference the package.
     /// * `package`: compiled package data.
-    pub fn add_global_package<E: Reference>(
+    pub fn add_global_package<N: ReferenceName>(
         &mut self,
-        name: E,
+        name: N,
         package: &(Vec<u8>, PackageDefinition),
     ) {
         match self.packages.get(&name.format()) {
@@ -118,7 +116,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: name that will be used to reference the account.
-    pub fn new_account<E: Reference>(&mut self, name: E) {
+    pub fn new_account<N: ReferenceName>(&mut self, name: N) {
         match self.accounts.get(&name.format()) {
             Some(_) => panic!("An account with name {} already exists", name.format()),
             None => self
@@ -134,9 +132,9 @@ impl TestEngine {
     /// * `blueprint_name`: name of the blueprint.
     /// * `instantiation_function`: name of the function that instantiates the component.
     /// * `args`: environment arguments to instantiate the component.
-    pub fn new_component<E: Reference>(
+    pub fn new_component<N: ReferenceName>(
         &mut self,
-        component_name: E,
+        component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
@@ -150,9 +148,9 @@ impl TestEngine {
         )
     }
 
-    pub fn new_component_with_badge<E: Reference, R: ResourceReference>(
+    pub fn new_component_with_badge<N: ReferenceName, R: ResourceReference>(
         &mut self,
-        component_name: E,
+        component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
         badge: R,
@@ -175,9 +173,9 @@ impl TestEngine {
     /// * `instantiation_function`: name of the function that instantiates the component.
     /// * `args`: environment arguments to instantiate the component.
     /// * `callback`: function that modifies the call_builder before execution.
-    pub fn new_custom_component<E: Reference>(
+    pub fn new_custom_component<N: ReferenceName>(
         &mut self,
-        component_name: E,
+        component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
@@ -206,7 +204,7 @@ impl TestEngine {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `amount`: amount of resources to transfer.
-    pub fn transfer<E: Reference, R: Reference + Clone + 'static, D: TryInto<Decimal>>(
+    pub fn transfer<E: ReferenceName, R: ReferenceName + Clone + 'static, D: TryInto<Decimal>>(
         &mut self,
         recipient: E,
         resource: R,
@@ -226,7 +224,7 @@ impl TestEngine {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `ids`: ids to transfer.
-    pub fn transfer_non_fungibles<E: Reference, R: Reference + Clone + 'static>(
+    pub fn transfer_non_fungibles<E: ReferenceName, R: ReferenceName + Clone + 'static>(
         &mut self,
         recipient: E,
         resource: R,
@@ -242,9 +240,9 @@ impl TestEngine {
     /// # Arguments
     /// * `token_name`: name that will be used to reference the token.
     /// * `initial_distribution`: initial distribution of the token.
-    pub fn new_token<E: Reference, D: TryInto<Decimal>>(
+    pub fn new_token<N: ReferenceName, D: TryInto<Decimal>>(
         &mut self,
-        token_name: E,
+        token_name: N,
         initial_distribution: D,
     ) where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
@@ -270,9 +268,9 @@ impl TestEngine {
     /// * `initial_distribution`: initial distribution of the token.
     /// * `resource_address`: address of the resource.
     /// * `network`: network on which the resource has the given address.
-    pub fn new_token_with_address<E: Reference, D: TryInto<Decimal>>(
+    pub fn new_token_with_address<N: ReferenceName, D: TryInto<Decimal>>(
         &mut self,
-        token_name: E,
+        token_name: N,
         initial_supply: D,
         resource_address: &str,
         network: NetworkDefinition,
@@ -301,9 +299,9 @@ impl TestEngine {
     /// # Arguments
     /// * `token_name`: name that will be used to reference the token.
     /// * `resource_address`: address of the resource.
-    pub fn register_token<E: Reference>(
+    pub fn register_token<N: ReferenceName>(
         &mut self,
-        token_name: E,
+        token_name: N,
         resource_address: ResourceAddress,
     ) {
         match self.resources.get(&token_name.format()) {
@@ -331,7 +329,7 @@ impl TestEngine {
     /// # Arguments
     /// * `entity`: reference name or address of the entity.
     /// * `resource`: reference name or address of the resource.
-    pub fn balance_of<E: EntityReference, R: ResourceReference>(
+    pub fn balance_of<E: ComponentReference, R: ResourceReference>(
         &mut self,
         entity: E,
         resource: R,
@@ -359,7 +357,7 @@ impl TestEngine {
     /// # Arguments
     /// * `account`: reference name of the account.
     /// * `resource`: reference name or address of the resource.
-    pub fn ids_balance_of<E: EntityReference, R: ResourceReference>(
+    pub fn ids_balance_of<E: ComponentReference, R: ResourceReference>(
         &mut self,
         entity: E,
         resource: R,
@@ -446,7 +444,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the package.
-    pub fn get_package<E: Reference>(&self, name: E) -> PackageAddress {
+    pub fn get_package<N: ReferenceName>(&self, name: N) -> PackageAddress {
         match self.packages.get(&name.format()) {
             None => panic!("There is no package with name {}", name.format()),
             Some(address) => *address,
@@ -457,7 +455,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
-    pub fn get_component<E: Reference>(&self, name: E) -> ComponentAddress {
+    pub fn get_component<N: ReferenceName>(&self, name: N) -> ComponentAddress {
         match self.components.get(&name.format()) {
             None => panic!("There is no component with name {}", name.format()),
             Some(address) => *address,
@@ -468,7 +466,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the account.
-    pub fn get_account<E: Reference>(&self, name: E) -> &ComponentAddress {
+    pub fn get_account<N: ReferenceName>(&self, name: N) -> &ComponentAddress {
         match self.accounts.get(&name.format()) {
             None => panic!("There is no account with name {}", name.format()),
             Some(account) => account.address(),
@@ -479,7 +477,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the account.
-    pub fn set_current_account<E: Reference>(&mut self, name: E) -> CallBuilder {
+    pub fn set_current_account<N: ReferenceName>(&mut self, name: N) -> CallBuilder {
         self.current_account = name.format();
         self.get_account(name);
         CallBuilder::new(self)
@@ -489,7 +487,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
-    pub fn set_current_component<E: Reference>(&mut self, name: E) -> CallBuilder {
+    pub fn set_current_component<N: ReferenceName>(&mut self, name: N) -> CallBuilder {
         self.current_component = Some(name.format());
         self.get_component(name);
         CallBuilder::new(self)
@@ -499,7 +497,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the account.
-    pub fn set_current_package<E: Reference>(&mut self, name: E) -> CallBuilder {
+    pub fn set_current_package<N: ReferenceName>(&mut self, name: N) -> CallBuilder {
         self.current_package = Some(name.format());
         self.get_package(name);
         CallBuilder::new(self)
@@ -509,7 +507,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `name`: reference name of the resource.
-    pub fn get_resource<E: Reference>(&self, name: E) -> ResourceAddress {
+    pub fn get_resource<N: ReferenceName>(&self, name: N) -> ResourceAddress {
         match self.resources.get(&name.format()) {
             None => panic!("There is no resource with name {}", name.format()),
             Some(resource) => *resource,
@@ -544,7 +542,7 @@ impl TestEngine {
     ///
     /// # Arguments
     /// * `component`: component reference or address for which to get the state.
-    pub fn get_component_state<T: ScryptoDecode, E: EntityReference>(&self, component: E) -> T {
+    pub fn get_component_state<T: ScryptoDecode, E: ComponentReference>(&self, component: E) -> T {
         self.engine_interface.get_state(component.address(self))
     }
 
@@ -605,21 +603,21 @@ impl TestEngine {
         self.update_resources_from_result(result);
     }
 
-    pub(crate) fn get_entity<E: Reference>(&self, entity: E) -> ComponentAddress {
-        match self.accounts.get(&entity.format()) {
+    pub(crate) fn get_entity<N: ReferenceName>(&self, name: N) -> ComponentAddress {
+        match self.accounts.get(&name.format()) {
             Some(account) => *(account.address()),
-            None => match self.components.get(&entity.format()) {
+            None => match self.components.get(&name.format()) {
                 Some(component) => *component,
                 None => {
-                    panic!("There is no component with name {}!", entity.format())
+                    panic!("There is no component with name {}!", name.format())
                 }
             },
         }
     }
 
-    fn create_component<E: Reference>(
+    fn create_component<N: ReferenceName>(
         &mut self,
-        component_name: E,
+        component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
@@ -664,7 +662,7 @@ impl TestEngine {
         receipt
     }
 
-    fn create_package<E: Reference>(&mut self, name: E, receipt: TransactionReceipt) {
+    fn create_package<N: ReferenceName>(&mut self, name: N, receipt: TransactionReceipt) {
         match receipt.result {
             TransactionResult::Commit(commit) => {
                 self.packages
@@ -754,7 +752,7 @@ impl MethodCaller for TestEngine {
         self.call_method_builder_from(component, method_name, args)
     }
 
-    fn call_method_builder_from<G: GlobalAddressReference>(
+    fn call_method_builder_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,
@@ -773,7 +771,7 @@ impl MethodCaller for TestEngine {
         self.call_method_from(component, method_name, args)
     }
 
-    fn call_method_from<G: GlobalAddressReference>(
+    fn call_method_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,

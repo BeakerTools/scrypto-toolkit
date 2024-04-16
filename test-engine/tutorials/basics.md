@@ -33,19 +33,18 @@ test_engine.new_token("btc", 21000000);
 
 The second argument is the initial supply and can be of any type that can be casted into a `Decimal`.
 
-## Environment References
+## References
 
-The main feature of this package is to be able to reference any entity by a given name or its metadata name. This
-includes:
+The main feature of this package is to be able to reference entities(account, packages, resources, components) by given
+names or address called a `NameReference`. These references are not case-sensitive and spaces and underscores are
+ignored. The following strings refer to the same `NameReferences`: `xrd`, `XrD`, `RAd_Ix`, `RA   dIx`, `RAdIx`.  
+Additionnaly, there are 3 other types of references:
 
-- Accounts
-- Packages
-- Components
-- Resources
+- `ComponentReference`: A string reference or `ComponentAddress` of a component (an account name also works).
+- `ResourceReference`: A string reference or `ResourceAddress` of a resource.
+- `GlobalReference`: A string reference or `ComponentAddress` or `ResourceAddress` of a component/resource.
 
-Its main use case is for method calls. When a resource is created its symbol and its name are registered as environment
-references, which are not case-sensitive. For example, we can get the XRD balance of the current account in the
-following ways:
+For example, we can get the XRD balance of the current account in the following ways:
 
 ```Rust
 let xrd_balance = test_engine.current_balance("xrd");
@@ -53,10 +52,9 @@ let xrd_balance = test_engine.current_balance("XrD"); // Not case-sensitive.
 let xrd_balance = test_engine.current_balance("RAd_Ix"); // _ is replaced by an empty character.
 let xrd_balance = test_engine.current_balance("RA   dIx"); // spaces are replaced by empty characters.
 let xrd_balance = test_engine.current_balance("RAdIx"); // Resources can also be referenced by their name.
+let xrd_balance = test.engine.current_balance( < xrd_resource_address>);
 ```
 
-We can also query the XRD balance of the `default` account:
-
-```Rust
-let custom_xrd_balance = test_engine.balance_of("def ault", "XRD");
-```
+References are created manually when a `ReferenceName` is supplied or automatically from resources and components
+metadata. For a resource, its `name` and `symbol` are parsed and can be used as a reference. For a component, its `name`
+metadata(if it exists) can be used as reference.

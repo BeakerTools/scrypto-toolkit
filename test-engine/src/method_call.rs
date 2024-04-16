@@ -1,6 +1,6 @@
-use crate::calls::CallBuilder;
+use crate::call_builder::CallBuilder;
 use crate::environment::EnvironmentEncode;
-use crate::environment_reference::{GlobalAddressReference, ResourceReference};
+use crate::references::{GlobalReference, ResourceReference};
 use radix_engine::transaction::TransactionReceipt;
 
 pub trait MethodCaller {
@@ -24,7 +24,7 @@ pub trait MethodCaller {
     /// * `global_address`: reference or address of the entity to call.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    fn call_method_builder_from<G: GlobalAddressReference>(
+    fn call_method_builder_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,
@@ -48,7 +48,7 @@ pub trait MethodCaller {
     /// * `global_address`: reference or address of the entity to call.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    fn call_method_from<G: GlobalAddressReference>(
+    fn call_method_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,
