@@ -20,22 +20,22 @@ pub trait EnvironmentEncode {
     ) -> ManifestBuilder;
 }
 
-pub enum Environment<E: ReferenceName + Clone> {
-    Account(E),
-    Component(E),
-    Package(E),
-    WorkTopFungibleBucket(E, Decimal),
-    FungibleBucket(E, Decimal),
-    WorktopNonFungibleBucket(E, Vec<NonFungibleLocalId>),
-    NonFungibleBucket(E, Vec<NonFungibleLocalId>),
-    AuthZoneFungibleProof(E, Decimal),
-    FungibleProof(E, Decimal),
-    AuthZoneNonFungibleProof(E, Vec<NonFungibleLocalId>),
-    NonFungibleProof(E, Vec<NonFungibleLocalId>),
-    Resource(E),
+pub enum Environment<N: ReferenceName + Clone> {
+    Account(N),
+    Component(N),
+    Package(N),
+    WorkTopFungibleBucket(N, Decimal),
+    FungibleBucket(N, Decimal),
+    WorktopNonFungibleBucket(N, Vec<NonFungibleLocalId>),
+    NonFungibleBucket(N, Vec<NonFungibleLocalId>),
+    AuthZoneFungibleProof(N, Decimal),
+    FungibleProof(N, Decimal),
+    AuthZoneNonFungibleProof(N, Vec<NonFungibleLocalId>),
+    NonFungibleProof(N, Vec<NonFungibleLocalId>),
+    Resource(N),
 }
 
-impl<E: ReferenceName + Clone> Environment<E> {
+impl<N: ReferenceName + Clone> Environment<N> {
     fn to_encode<'a>(
         &self,
         test_engine: &TestEngine,
@@ -165,7 +165,7 @@ impl<E: ReferenceName + Clone> Environment<E> {
     }
 }
 
-impl<E: ReferenceName + Clone> EnvironmentEncode for Environment<E> {
+impl<N: ReferenceName + Clone> EnvironmentEncode for Environment<N> {
     fn encode(
         &self,
         test_engine: &TestEngine,
@@ -179,17 +179,17 @@ impl<E: ReferenceName + Clone> EnvironmentEncode for Environment<E> {
     }
 }
 
-pub struct EnvVec<E: ReferenceName + Clone> {
-    elements: Vec<Environment<E>>,
+pub struct EnvVec<N: ReferenceName + Clone> {
+    elements: Vec<Environment<N>>,
 }
 
-impl<E: ReferenceName + Clone> EnvVec<E> {
-    pub fn from_vec(elements: Vec<Environment<E>>) -> Self {
+impl<N: ReferenceName + Clone> EnvVec<N> {
+    pub fn from_vec(elements: Vec<Environment<N>>) -> Self {
         Self { elements }
     }
 }
 
-impl<E: ReferenceName + Clone> EnvironmentEncode for EnvVec<E> {
+impl<N: ReferenceName + Clone> EnvironmentEncode for EnvVec<N> {
     fn encode(
         &self,
         test_engine: &TestEngine,

@@ -17,7 +17,7 @@ use crate::account::Account;
 use crate::call_builder::CallBuilder;
 use crate::engine_interface::EngineInterface;
 use crate::environment::EnvironmentEncode;
-use crate::method_call::MethodCaller;
+use crate::method_call::{ComplexMethodCaller, SimpleMethodCaller};
 use crate::receipt_traits::Outcome;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 
@@ -435,7 +435,7 @@ impl TestEngine {
             vec![Box::new(id), Box::new(field_name.to_string())];
         args.append(&mut data);
         CallBuilder::new(self)
-            .call_with_component(resource, "update_non_fungible_data", args)
+            .call_from_component(resource, "update_non_fungible_data", args)
             .with_badge(badge)
             .execute()
     }
@@ -738,7 +738,39 @@ impl Default for TestEngine {
     }
 }
 
-impl MethodCaller for TestEngine {
+impl<'a> SimpleMethodCaller for &'a mut TestEngine {
+    fn call_method(
+        self,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        let component = *self.current_component();
+        self.call_method_from(component, method_name, args)
+    }
+
+    fn call_method_from<G: GlobalReference>(
+        self,
+        global_address: G,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        self.call_method_builder_from(global_address, method_name, args)
+            .execute()
+    }
+
+    fn call_method_with_badge<R: ResourceReference>(
+        self,
+        method_name: &str,
+        admin_badge: R,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        self.call_method_builder(method_name, args)
+            .with_badge(admin_badge)
+            .execute()
+    }
+}
+
+impl ComplexMethodCaller for TestEngine {
     fn build_call(&mut self) -> CallBuilder {
         CallBuilder::new(self)
     }
@@ -760,35 +792,5 @@ impl MethodCaller for TestEngine {
     ) -> CallBuilder {
         let address = global_address.address(self);
         CallBuilder::new(self).call_method_internal(address, method_name, args)
-    }
-
-    fn call_method(
-        &mut self,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
-        let component = *self.current_component();
-        self.call_method_from(component, method_name, args)
-    }
-
-    fn call_method_from<G: GlobalReference>(
-        &mut self,
-        global_address: G,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
-        self.call_method_builder_from(global_address, method_name, args)
-            .execute()
-    }
-
-    fn call_method_with_badge<R: ResourceReference>(
-        &mut self,
-        method_name: &str,
-        admin_badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
-        self.call_method_builder(method_name, args)
-            .with_badge(admin_badge)
-            .execute()
     }
 }

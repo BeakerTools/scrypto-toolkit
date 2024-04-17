@@ -16,6 +16,7 @@ use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, Trans
 use crate::account::Account;
 use crate::environment::{Environment, EnvironmentEncode};
 use crate::manifest_args;
+use crate::method_call::SimpleMethodCaller;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
 
@@ -55,50 +56,6 @@ impl<'a> CallBuilder<'a> {
         }
     }
 
-    pub fn withdraw(mut self, resource: &str, amount: Decimal) -> Self {
-        let account = self.test_engine.current_account().address();
-        let resource_address = self.test_engine.get_resource(resource);
-        self.manifest_builder = self.manifest_builder.call_method(
-            *account,
-            "withdraw",
-            manifest_args!(resource_address, amount),
-        );
-
-        self
-    }
-
-    /// Calls a method of the current component.
-    ///
-    /// # Arguments
-    /// * `method_name`: name of the method.
-    /// * `args`: environment arguments to call the method.
-    pub fn call_method(
-        self,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
-        let component = *self.test_engine.current_component();
-        self.call_method_internal(component, method_name, args)
-            .execute()
-    }
-
-    /// Calls a method of the given component.
-    ///
-    /// # Arguments
-    /// * `entity_name`: reference name or address of the entity to call the method on.
-    /// * `method_name`: name of the method.
-    /// * `args`: environment arguments to call the method.
-    pub fn call_method_with_component<G: GlobalReference>(
-        self,
-        entity_name: G,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
-        let component = entity_name.address(self.test_engine);
-        self.call_method_internal(component, method_name, args)
-            .execute()
-    }
-
     /// Creates a call builder for a method call of the current component and skip the transaction execution.
     ///
     /// # Arguments
@@ -115,7 +72,7 @@ impl<'a> CallBuilder<'a> {
     /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_with_component<G: GlobalReference>(
+    pub fn call_from_component<G: GlobalReference>(
         self,
         entity_name: G,
         method_name: &str,
@@ -125,25 +82,7 @@ impl<'a> CallBuilder<'a> {
         self.call_method_internal(component, method_name, args)
     }
 
-    // /// Sets the current package.
-    // ///
-    // /// # Arguments
-    // /// * `name`: reference name of the account.
-    // pub fn set_current_package<E: EnvRef>(self, name: E) -> Self {
-    //     self.test_engine.set_current_package(name);
-    //     self
-    // }
-
-    // /// Sets the current account.
-    // ///
-    // /// # Arguments
-    // /// * `name`: reference name of the account.
-    // pub fn set_current_account<E: EnvRef>(self, name: E) -> Self {
-    //     self.test_engine.set_current_account(name);
-    //     self
-    // }
-
-    /// Sets the current component
+    /// Sets the current component.
     ///
     /// # Arguments
     /// * `name`: reference name of the component.
@@ -152,6 +91,7 @@ impl<'a> CallBuilder<'a> {
         self
     }
 
+    /// Executes the call.
     pub fn execute(mut self) -> TransactionReceipt {
         self.manifest_data = Some(TransactionManifestData {
             object_names: self.manifest_builder.object_names().clone(),
@@ -170,31 +110,6 @@ impl<'a> CallBuilder<'a> {
             self.with_trace,
             vec![self.caller.proof()],
             true,
-        );
-
-        Self::output_logs(&receipt);
-
-        receipt
-    }
-
-    pub(crate) fn execute_no_update(mut self) -> TransactionReceipt {
-        self.manifest_data = Some(TransactionManifestData {
-            object_names: self.manifest_builder.object_names().clone(),
-            transaction_manifest: self.manifest_builder.build(),
-        });
-
-        self.manifest_builder = ManifestBuilder::new();
-
-        self.write_lock();
-        self.write_deposit();
-        self.write_badge();
-        self.output_manifest();
-
-        let receipt = self.test_engine.execute_call(
-            self.manifest_data.unwrap().transaction_manifest,
-            self.with_trace,
-            vec![self.caller.proof()],
-            false,
         );
 
         Self::output_logs(&receipt);
@@ -244,7 +159,7 @@ impl<'a> CallBuilder<'a> {
     where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
-        self.call_with_component(
+        self.call_from_component(
             recipient,
             "try_deposit_or_abort",
             vec![
@@ -269,7 +184,7 @@ impl<'a> CallBuilder<'a> {
         resource: R,
         ids: Vec<NonFungibleLocalId>,
     ) -> Self {
-        self.call_with_component(
+        self.call_from_component(
             recipient,
             "try_deposit_or_abort",
             vec![
@@ -307,6 +222,19 @@ impl<'a> CallBuilder<'a> {
         };
 
         self.admin_badge.push((resource, ids_tree));
+        self
+    }
+
+    /// Withdraws resource from an account
+    pub fn withdraw<R: ResourceReference>(mut self, resource: R, amount: Decimal) -> Self {
+        let account = self.test_engine.current_account().address();
+        let resource_address = resource.address(self.test_engine);
+        self.manifest_builder = self.manifest_builder.call_method(
+            *account,
+            "withdraw",
+            manifest_args!(resource_address, amount),
+        );
+
         self
     }
 
@@ -351,6 +279,31 @@ impl<'a> CallBuilder<'a> {
         self.manifest_builder = manifest_builder;
 
         self
+    }
+
+    pub(crate) fn execute_no_update(mut self) -> TransactionReceipt {
+        self.manifest_data = Some(TransactionManifestData {
+            object_names: self.manifest_builder.object_names().clone(),
+            transaction_manifest: self.manifest_builder.build(),
+        });
+
+        self.manifest_builder = ManifestBuilder::new();
+
+        self.write_lock();
+        self.write_deposit();
+        self.write_badge();
+        self.output_manifest();
+
+        let receipt = self.test_engine.execute_call(
+            self.manifest_data.unwrap().transaction_manifest,
+            self.with_trace,
+            vec![self.caller.proof()],
+            false,
+        );
+
+        Self::output_logs(&receipt);
+
+        receipt
     }
 
     pub(crate) fn call_function_internal(
@@ -474,5 +427,40 @@ impl<'a> CallBuilder<'a> {
                 }
             }
         }
+    }
+}
+
+impl SimpleMethodCaller for CallBuilder<'_> {
+    fn call_method(
+        self,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        let component = *self.test_engine.current_component();
+        self.call_method_internal(component, method_name, args)
+            .execute()
+    }
+
+    fn call_method_from<G: GlobalReference>(
+        self,
+        entity_name: G,
+        method_name: &str,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        let component = entity_name.address(self.test_engine);
+        self.call_method_internal(component, method_name, args)
+            .execute()
+    }
+
+    fn call_method_with_badge<R: ResourceReference>(
+        self,
+        method_name: &str,
+        admin_badge: R,
+        args: Vec<Box<dyn EnvironmentEncode>>,
+    ) -> TransactionReceipt {
+        let component = *self.test_engine.current_component();
+        self.call_method_internal(component, method_name, args)
+            .with_badge(admin_badge)
+            .execute()
     }
 }

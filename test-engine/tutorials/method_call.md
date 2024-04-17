@@ -1,83 +1,65 @@
-## Method calls
+# Method calls
 
 Now that we have instantiated a component, we can make calls on it by using the `call_method` method:
 
 ```Rust
 test_engine.call_method(
-"buy_gumball",
-env_args!(Environment::FungibleBucket("XRD", dec!(10))),
+"buy_gumball", // Name of the method to call
+env_args!(Environment::FungibleBucket("XRD", dec!(10))), // Arguments
 );
 ```
 
-In the `env_args!` macro, usual Scrypto types such as `ComponentAddress` or `ResourceAddress` can be used. `Environment`
-arguments can also be used. Here, we have used the `FungibleBucket` environment argument. It enabled us to automatically
-create a bucket with 20 XRD. The `Environment` enum is defined by:
+This method will always call the current component. The previous method works fine for most use cases, but sometimes
+we need to make more complex method calls. There are 6 ways to call a method in this package: 3 ways to make
+[simple method calls](#simple-method-calls) and 3 other ways to make [complex method calls]().
+
+Some [basic calls]() are also implemented to make life easier.
+
+## Simple method calls
+
+For simple method calls, we can use:
+
+- `call_method` - for simple method calls.
+- `call_method_with_badge` - for simple method calls that require a badge.
+- `call_method_from` - for simple method calls to a global address.
+
+To call a method that requires a badge, we can use the `call_method_with_badge` method:
 
 ```Rust
-pub enum Environment<E: EnvRef + Clone> {
-    Account(E),
-    Component(E),
-    Package(E),
-    FungibleBucket(E, Decimal),
-    NonFungibleBucket(E, Vec<NonFungibleLocalId>),
-    FungibleProof(E, Decimal),
-    NonFungibleProof(E, Vec<NonFungibleLocalId>),
-    Resource(E),
-}
-```
-
-where `E` is a reference to the given entity. This enum combined with the `env_args!` macro enables us to only care
-about the arguments of
-our tests without having to create the Buckets/Proofs manually. Another [example](tests/nft_marketplace/unit_tests.rs)
-is the instantiation of a `DutchAuction`:
-
-```Rust
-test_engine.new_component(
-"dutch_auction",
-"DutchAuction",
-"instantiate_dutch_auction",
-env_args![
-                env_vec![Environment::NonFungibleBucket(
-                    "cars nft",
-                    vec![car_id.unwrap()]
-                )],
-                Environment::Resource("xrd"),
-                dec!(10),
-                dec!(5),
-                10 as u64
-            ],
+test_engine.call_method_with_badge(
+"cancel_sale", // Name of the method to call
+"Ownership badge", // Resource Reference to the badge to use
+env_args!() // Arguments
 );
 ```
 
-Here we used the `env_vec!` macro to make an array of `Environment` variables. To conclude, any type that implements the
-trait `ManifestSbor` can also be used as direct argument in the `env_arg` macro. The following struct can be used:
+## Complex method calls
 
-```rust
-#[ManifestSbor]
-pub struct SomeType {
-    some_fields: FieldsType
-}
+For more complex method calls, we can use:
 
-```
+- `call_method_builder` - for complex calls on a given method.
+- `call_method_builder_from` - for complex calls to method from a global address.
+- `build_call` - for a totally manual complex call.
 
-## Custom method calls
+These three methods will return a `CallBuilder` which will enable you to choose more parameters or even to make multiple
+method calls at once.
 
 By default, a method call makes the faucet pays for fee and deposits all remaining resources to the calling account. We
 can change this by making calls with the `custom_method_call` method:
 
 ```Rust
-test_engine.custom_method_call(
+test_engine.call_methode_builder(
 "buy_gumball",
 env_args!(Environment::FungibleBucket("XRD", dec!(10))))
 .lock_fee("default", 20) // The second argument is of any type that can be casted to a Decimal
+.deposit_batch("User 2")
 .execute()
 ```
 
-Don't forget the `execute` at the end of the call to make sure that it is executed! We can also change the account to
-which every remaining resources are deposited and also output the manifest:
+/!\ Don't forget the `execute` at the end of the call to make sure that it is executed! We can also output the manifest:
 
 ```Rust
-test_engine.custom_method_call(
+test_engine.call_methode_builder(
 "buy_gumball",
 env_args!(Environment::FungibleBucket("XRD", dec!(10))))
 .deposit_batch("d Ef A    ult")
@@ -85,21 +67,13 @@ env_args!(Environment::FungibleBucket("XRD", dec!(10))))
 .execute()
 ```
 
-## Method calls with badges
+## Basic calls
 
-To call a method that requires a badge, we can use the `call_method_with_badge` method:
+In addition to the manual method calls, a variety of usual calls are implemented:
 
-```Rust
-test_engine.call_method_with_badge("cancel_sale", "Ownership badge", env_args!());
-```
-
-If we are making a custom call, we can use the `with_badge` option:
-
-```Rust
-test_engine.custom_method_call(("cancel_sale", env_args!())
-.with_badge("Ownership badge")
-.execute();
-```
+- `transfer` - to transfer tokens between accounts.
+- `transfer_non_fungibles` - to transfer nfts between accounts.
+- `update_non_fungible_data` - to update an nft's data.
 
 ## Method's return
 
@@ -124,7 +98,7 @@ test_engine.call_method("buy", env_args![
 Finally, we can also get the return of a method call:
 
 ```Rust
-let price: Decimal = test_engine.call_method("get_price", env_args!()).get_price();
+let price: Decimal = test_engine.call_method("get_price", env_args!()).get_return();
 ```
 
 Note here that providing the expected returned type is required. Moreover, buckets and proofs are not properly supported
