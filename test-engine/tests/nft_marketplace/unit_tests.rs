@@ -1,14 +1,15 @@
 mod nft_marketplace_tests {
     use radix_engine_interface::dec;
 
-    use test_engine::env_args;
     use test_engine::environment::Environment;
     use test_engine::receipt_traits::Outcome;
     use test_engine::test_engine::TestEngine;
+    use test_engine::{env_args, env_vec, global_package};
+
+    global_package!(NFT_MARKETPLACE_PACKAGE, "tests/nft_marketplace/package");
 
     fn bootstrap() -> TestEngine {
-        let mut test_engine = TestEngine::new();
-        test_engine.new_package("nft marketplace", "tests/nft_marketplace/package");
+        let mut test_engine = TestEngine::with_package("nft marketplace", &NFT_MARKETPLACE_PACKAGE);
         test_engine.new_component("bootstrap", "Bootstrap", "bootstrap", env_args!());
         test_engine
     }
@@ -32,14 +33,14 @@ mod nft_marketplace_tests {
             "DutchAuction",
             "instantiate_dutch_auction",
             env_args![
-                vec![Environment::NonFungibleBucket(
+                env_vec![Environment::NonFungibleBucket(
                     "cars nft",
                     vec![car_id.unwrap()]
                 )],
                 Environment::Resource("xrd"),
                 dec!(10),
                 dec!(5),
-                10 as u64
+                10u64
             ],
         );
         test_engine.set_current_component("dutch auction");
@@ -53,7 +54,7 @@ mod nft_marketplace_tests {
     }
 
     fn new_buyer(test_engine: &mut TestEngine, name: &str) {
-        test_engine.new_account(name.clone());
+        test_engine.new_account(name);
         test_engine.set_current_account(name);
         test_engine.call_faucet();
     }
@@ -81,7 +82,7 @@ mod nft_marketplace_tests {
         test_engine.jump_epochs(5);
         let amount_owned_before = test_engine.current_balance("xrd");
         test_engine
-            .custom_method_call(
+            .call_method_builder(
                 "buy",
                 env_args![Environment::FungibleBucket("xrd", dec!(10))],
             )

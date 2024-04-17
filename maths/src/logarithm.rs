@@ -39,7 +39,7 @@ impl Logarithm for Decimal {
             let n = if pow_two == U192::ONE {
                 0
             } else {
-                pow_two.0.ilog2() as u32
+                pow_two.0.ilog2()
             };
 
             let initial_value = self / Decimal::try_from(pow_two).unwrap();

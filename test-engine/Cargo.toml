@@ -1,6 +1,7 @@
 [package]
 name = "test-engine"
-version = "0.0.1"
+version = "0.2.0"
+license = "MIT"
 edition = "2021"
 
 [dependencies]
@@ -10,5 +11,6 @@ radix-engine-stores = { git = "https://github.com/radixdlt/radixdlt-scrypto", ta
 transaction = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
 scrypto-unit = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
 radix-engine-common = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
+lazy_static = "1.4.0"
 
 [lib]

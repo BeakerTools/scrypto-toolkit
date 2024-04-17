@@ -17,3 +17,9 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+# Filter out all compiled Manifest files
+**/*.rtm
+
+# 
+.DS_Store

@@ -1,13 +1,14 @@
 mod gumball_machine_tests {
     use radix_engine::types::{dec, Decimal};
-    use test_engine::env_args;
     use test_engine::environment::Environment;
     use test_engine::receipt_traits::{GetReturn, Outcome};
     use test_engine::test_engine::TestEngine;
+    use test_engine::{env_args, global_package};
+
+    global_package!(GUMBALL_PACKAGE, "tests/gumball_machine/package");
 
     fn instantiate_gumball() -> TestEngine {
-        let mut test_engine = TestEngine::new();
-        test_engine.new_package("gumball package", "tests/gumball_machine/package");
+        let mut test_engine = TestEngine::with_package("gumball package", &GUMBALL_PACKAGE);
         test_engine.new_component(
             "gumball comp",
             "GumballMachine",
