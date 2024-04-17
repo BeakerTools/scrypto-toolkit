@@ -3,18 +3,12 @@
 This library aims at providing open source tools for Scrypto developers.
 At the moment, these include:
 
-- [Better testing engine](test-engine/README.md)
-- [Data structures](data-structures/README.md)
+- [Test Engine](test-engine/README.md)
 - [Maths library](maths/README.md) (Needs an overhaul)
 
 ## Contribute:
 
 To contribute please follow the [contribution guide](CONTRIBUTING.md). The following features are open for contribution.
-
-### Data structures
-
-- [ ] Add more features to `BigVec`
-- [ ] Implement more data structures
 
 ### Test Engine
 

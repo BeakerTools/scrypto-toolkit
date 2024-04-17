@@ -1,3 +1,4 @@
+pub use crate::method_call::ComplexMethodCaller;
 pub use crate::method_call::SimpleMethodCaller;
 pub use lazy_static::lazy_static;
 pub use radix_engine_interface::blueprints::package::PackageDefinition;
