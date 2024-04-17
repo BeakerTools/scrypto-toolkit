@@ -13,9 +13,9 @@ test-engine = { git = "https://github.com/BeakerTools/scrypto-toolkit", branch =
 
 # Main Features
 
-- [Basics](tutorials/basics.md)
-- [Packages and blueprints](tutorials/packages_and_blueprints.md)
-- [Calling methods](tutorials/method_call.md)
+- [Basics](tutorials/1. Basics)
+- [Packages and blueprints](tutorials/2. Packages and Blueprints)
+- [Calling methods](tutorials/3. Method Calls)
 
 # Examples
 
