@@ -22,7 +22,12 @@ macro_rules! env_vec {
 
      ($( $x:expr ),*) => {{
          use test_engine::environment::EnvVec;
-         EnvVec::from_vec(vec![$($x,)*])
+         use test_engine::environment::ToEncode;
+         let mut temp_vec: Vec<Box<dyn ToEncode>> = vec![];
+            $(
+                temp_vec.push(Box::new($x));
+            )*
+         EnvVec::from_vec(temp_vec)
     }};
 }
 

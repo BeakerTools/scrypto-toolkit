@@ -204,7 +204,11 @@ impl TestEngine {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `amount`: amount of resources to transfer.
-    pub fn transfer<E: ReferenceName, R: ReferenceName + Clone + 'static, D: TryInto<Decimal>>(
+    pub fn transfer<
+        E: ReferenceName,
+        R: ReferenceName + Clone + 'static,
+        D: TryInto<Decimal> + Clone + 'static,
+    >(
         &mut self,
         recipient: E,
         resource: R,

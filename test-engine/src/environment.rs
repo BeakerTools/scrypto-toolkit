@@ -7,13 +7,25 @@ use transaction::builder::ManifestBuilder;
 use transaction::model::InstructionV1;
 
 use crate::manifest_args;
-use crate::references::ReferenceName;
+use crate::references::{ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
+
+pub trait ToEncode {
+    fn to_encode<'a>(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        caller: ComponentAddress,
+    ) -> (
+        ManifestBuilder,
+        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
+    );
+}
 
 pub trait EnvironmentEncode {
     fn encode(
         &self,
-        test_engine: &TestEngine,
+        test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
@@ -24,23 +36,15 @@ pub enum Environment<N: ReferenceName + Clone> {
     Account(N),
     Component(N),
     Package(N),
-    WorkTopFungibleBucket(N, Decimal),
-    FungibleBucket(N, Decimal),
-    WorktopNonFungibleBucket(N, Vec<NonFungibleLocalId>),
-    NonFungibleBucket(N, Vec<NonFungibleLocalId>),
-    AuthZoneFungibleProof(N, Decimal),
-    FungibleProof(N, Decimal),
-    AuthZoneNonFungibleProof(N, Vec<NonFungibleLocalId>),
-    NonFungibleProof(N, Vec<NonFungibleLocalId>),
     Resource(N),
 }
 
-impl<N: ReferenceName + Clone> Environment<N> {
+impl<N: ReferenceName + Clone> ToEncode for Environment<N> {
     fn to_encode<'a>(
         &self,
-        test_engine: &TestEngine,
+        test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
-        caller: ComponentAddress,
+        _caller: ComponentAddress,
     ) -> (
         ManifestBuilder,
         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
@@ -62,17 +66,54 @@ impl<N: ReferenceName + Clone> Environment<N> {
                 let package = test_engine.get_package(address.clone());
                 (manifest_builder, Box::new(package))
             }
-            Environment::WorkTopFungibleBucket(resource, amount) => {
-                let resource_address = test_engine.get_resource(resource.clone());
-                let (manifest_builder, bucket) =
-                    manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
-                        resource_address,
-                        amount: *amount,
-                    });
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-            }
-            Environment::FungibleBucket(resource, amount) => {
-                let resource_address = test_engine.get_resource(resource.clone());
+        }
+    }
+}
+
+impl<N: ReferenceName + Clone> EnvironmentEncode for Environment<N> {
+    fn encode(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        encoder: &mut ManifestEncoder,
+        caller: ComponentAddress,
+    ) -> ManifestBuilder {
+        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
+        encoder.encode(encoded.as_ref()).expect("Could not encode");
+        manifest_builder
+    }
+}
+
+pub enum Fungible<R: ResourceReference + Clone, D: TryInto<Decimal> + Clone>
+where
+    <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+{
+    Bucket(R, D),
+    BucketAllFromAccount(R),
+    BucketAllFromWorkTop(R),
+    BucketFromWorkTop(R, D),
+    Proof(R, D),
+    ProofFromAuthZone(R, D),
+}
+
+impl<R: ResourceReference + Clone, D: TryInto<Decimal> + Clone> ToEncode for Fungible<R, D>
+where
+    <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+{
+    fn to_encode<'a>(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        caller: ComponentAddress,
+    ) -> (
+        ManifestBuilder,
+        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
+    ) {
+        match self {
+            Fungible::Bucket(resource, amount) => {
+                let resource_address = resource.address(test_engine);
+                let amount = amount.clone().try_into().unwrap();
+
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "withdraw",
@@ -81,22 +122,118 @@ impl<N: ReferenceName + Clone> Environment<N> {
                 let (manifest_builder, bucket) =
                     manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
                         resource_address,
-                        amount: *amount,
+                        amount,
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Environment::WorktopNonFungibleBucket(resource, ids) => {
-                let resource_address = test_engine.get_resource(resource.clone());
-                let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
-                    InstructionV1::TakeNonFungiblesFromWorktop {
-                        resource_address,
-                        ids: ids.clone(),
-                    },
+            Fungible::BucketAllFromAccount(resource) => {
+                let amount_owned = test_engine.current_balance(resource.clone());
+                let resource_address = resource.address(test_engine);
+
+                let manifest_builder = manifest_builder.call_method(
+                    caller,
+                    "withdraw",
+                    manifest_args!(resource_address, amount_owned),
                 );
+                let (manifest_builder, bucket) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
+                        resource_address,
+                        amount: amount_owned,
+                    });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Environment::NonFungibleBucket(resource, ids) => {
-                let resource_address = test_engine.get_resource(resource.clone());
+            Fungible::BucketAllFromWorkTop(resource) => {
+                let resource_address = resource.address(test_engine);
+
+                let (manifest_builder, bucket) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::TakeAllFromWorktop {
+                        resource_address,
+                    });
+                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+            }
+            Fungible::BucketFromWorkTop(resource, amount) => {
+                let resource_address = resource.address(test_engine);
+                let amount = amount.clone().try_into().unwrap();
+
+                let (manifest_builder, bucket) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
+                        resource_address,
+                        amount,
+                    });
+                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+            }
+            Fungible::Proof(resource, amount) => {
+                let resource_address = resource.address(test_engine);
+                let amount = amount.clone().try_into().unwrap();
+
+                let manifest_builder = manifest_builder.call_method(
+                    caller,
+                    "create_proof_of_amount",
+                    manifest_args!(resource_address, amount),
+                );
+                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::CreateProofFromAuthZoneOfAmount {
+                        amount,
+                        resource_address,
+                    },
+                );
+                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+            }
+            Fungible::ProofFromAuthZone(resource, amount) => {
+                let resource_address = resource.address(test_engine);
+                let amount = amount.clone().try_into().unwrap();
+
+                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::CreateProofFromAuthZoneOfAmount {
+                        amount,
+                        resource_address,
+                    },
+                );
+                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+            }
+        }
+    }
+}
+
+impl<R: ResourceReference + Clone, D: TryInto<Decimal> + Clone> EnvironmentEncode for Fungible<R, D>
+where
+    <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+{
+    fn encode(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        encoder: &mut ManifestEncoder,
+        caller: ComponentAddress,
+    ) -> ManifestBuilder {
+        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
+        encoder.encode(encoded.as_ref()).expect("Could not encode");
+        manifest_builder
+    }
+}
+
+pub enum NonFungible<R: ResourceReference + Clone> {
+    Bucket(R, Vec<NonFungibleLocalId>),
+    BucketAllFromWorkTop(R),
+    BucketFromWorktop(R, Vec<NonFungibleLocalId>),
+    Proof(R, Vec<NonFungibleLocalId>),
+    ProofFromAuthZone(R, Vec<NonFungibleLocalId>),
+}
+
+impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
+    fn to_encode<'a>(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        caller: ComponentAddress,
+    ) -> (
+        ManifestBuilder,
+        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
+    ) {
+        match self {
+            NonFungible::Bucket(resource, ids) => {
+                let resource_address = resource.address(test_engine);
+
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "withdraw_non_fungibles",
@@ -110,44 +247,27 @@ impl<N: ReferenceName + Clone> Environment<N> {
                 );
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Environment::AuthZoneFungibleProof(resource, amount) => {
-                let resource_address = test_engine.get_resource(resource.clone());
+            NonFungible::BucketAllFromWorkTop(resource) => {
+                let resource_address = resource.address(test_engine);
 
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-                    InstructionV1::CreateProofFromAuthZoneOfAmount {
-                        amount: *amount,
+                let (manifest_builder, bucket) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::TakeAllFromWorktop {
                         resource_address,
-                    },
-                );
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+                    });
+                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Environment::FungibleProof(resource, amount) => {
-                let resource_address = test_engine.get_resource(resource.clone());
-                let manifest_builder = manifest_builder.call_method(
-                    caller,
-                    "create_proof_of_amount",
-                    manifest_args!(resource_address, amount),
-                );
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-                    InstructionV1::CreateProofFromAuthZoneOfAmount {
-                        amount: *amount,
-                        resource_address,
-                    },
-                );
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
-            }
-            Environment::AuthZoneNonFungibleProof(resource, ids) => {
-                let resource_address = test_engine.get_resource(resource.clone());
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-                    InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
+            NonFungible::BucketFromWorktop(resource, ids) => {
+                let resource_address = resource.address(test_engine);
+                let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::TakeNonFungiblesFromWorktop {
                         resource_address,
                         ids: ids.clone(),
                     },
                 );
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Environment::NonFungibleProof(resource, ids) => {
-                let resource_address = test_engine.get_resource(resource.clone());
+            NonFungible::Proof(resource, ids) => {
+                let resource_address = resource.address(test_engine);
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "create_proof_of_non_fungibles",
@@ -161,14 +281,24 @@ impl<N: ReferenceName + Clone> Environment<N> {
                 );
                 (manifest_builder, Box::new(proof.new_proof.unwrap()))
             }
+            NonFungible::ProofFromAuthZone(resource, ids) => {
+                let resource_address = resource.address(test_engine);
+                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                    InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
+                        resource_address,
+                        ids: ids.clone(),
+                    },
+                );
+                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+            }
         }
     }
 }
 
-impl<N: ReferenceName + Clone> EnvironmentEncode for Environment<N> {
+impl<R: ResourceReference + Clone> EnvironmentEncode for NonFungible<R> {
     fn encode(
         &self,
-        test_engine: &TestEngine,
+        test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
@@ -179,20 +309,20 @@ impl<N: ReferenceName + Clone> EnvironmentEncode for Environment<N> {
     }
 }
 
-pub struct EnvVec<N: ReferenceName + Clone> {
-    elements: Vec<Environment<N>>,
+pub struct EnvVec {
+    elements: Vec<Box<dyn ToEncode>>,
 }
 
-impl<N: ReferenceName + Clone> EnvVec<N> {
-    pub fn from_vec(elements: Vec<Environment<N>>) -> Self {
+impl EnvVec {
+    pub fn from_vec(elements: Vec<Box<dyn ToEncode>>) -> Self {
         Self { elements }
     }
 }
 
-impl<N: ReferenceName + Clone> EnvironmentEncode for EnvVec<N> {
+impl EnvironmentEncode for EnvVec {
     fn encode(
         &self,
-        test_engine: &TestEngine,
+        test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
@@ -232,7 +362,7 @@ impl<N: ReferenceName + Clone> EnvironmentEncode for EnvVec<N> {
 impl<T: for<'a> Encode<ManifestCustomValueKind, ManifestEncoder<'a>>> EnvironmentEncode for T {
     fn encode(
         &self,
-        _test_engine: &TestEngine,
+        _test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         encoder: &mut ManifestEncoder,
         _caller: ComponentAddress,

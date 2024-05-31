@@ -7,7 +7,7 @@ mod references;
 pub mod call_builder;
 pub mod environment;
 pub mod macros;
-mod method_call;
+pub mod method_call;
 pub mod prelude;
 pub mod receipt_traits;
 pub mod test_engine;

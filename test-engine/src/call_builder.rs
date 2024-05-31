@@ -14,7 +14,7 @@ use transaction::manifest::dumper::dump_manifest_to_file_system;
 use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, TransactionManifestV1};
 
 use crate::account::Account;
-use crate::environment::{Environment, EnvironmentEncode};
+use crate::environment::{EnvironmentEncode, Fungible, NonFungible};
 use crate::manifest_args;
 use crate::method_call::SimpleMethodCaller;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
@@ -150,7 +150,11 @@ impl<'a> CallBuilder<'a> {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `amount`: amount to transfer.
-    pub fn transfer<E: ReferenceName, R: ReferenceName + Clone + 'static, D: TryInto<Decimal>>(
+    pub fn transfer<
+        E: ReferenceName,
+        R: ReferenceName + Clone + 'static,
+        D: TryInto<Decimal> + Clone + 'static,
+    >(
         self,
         recipient: E,
         resource: R,
@@ -163,10 +167,7 @@ impl<'a> CallBuilder<'a> {
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(Environment::FungibleBucket(
-                    resource.clone(),
-                    amount.try_into().unwrap(),
-                )),
+                Box::new(Fungible::Bucket(resource.clone(), amount)),
                 Box::new(None::<u64>),
             ],
         )
@@ -188,7 +189,7 @@ impl<'a> CallBuilder<'a> {
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(Environment::NonFungibleBucket(resource, ids)),
+                Box::new(NonFungible::Bucket(resource, ids)),
                 Box::new(None::<u64>),
             ],
         )

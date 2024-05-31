@@ -1,7 +1,8 @@
 mod nft_marketplace_tests {
     use radix_engine_interface::dec;
 
-    use test_engine::environment::Environment;
+    use test_engine::environment::{Environment, Fungible, NonFungible};
+    use test_engine::method_call::ComplexMethodCaller;
     use test_engine::receipt_traits::Outcome;
     use test_engine::test_engine::TestEngine;
     use test_engine::{env_args, env_vec, global_package};
@@ -33,10 +34,7 @@ mod nft_marketplace_tests {
             "DutchAuction",
             "instantiate_dutch_auction",
             env_args![
-                env_vec![Environment::NonFungibleBucket(
-                    "cars nft",
-                    vec![car_id.unwrap()]
-                )],
+                env_vec![NonFungible::Bucket("cars nft", vec![car_id.unwrap()])],
                 Environment::Resource("xrd"),
                 dec!(10),
                 dec!(5),
@@ -65,10 +63,7 @@ mod nft_marketplace_tests {
         new_buyer(&mut test_engine, "buyer");
         let amount_owned_before = test_engine.current_balance("xrd");
         test_engine
-            .call_method(
-                "buy",
-                env_args![Environment::FungibleBucket("xrd", dec!(10))],
-            )
+            .call_method("buy", env_args![Fungible::Bucket("xrd", 10)])
             .assert_is_success();
         let amount_owned_after = test_engine.current_balance("radix");
         assert_eq!(amount_owned_before - amount_owned_after, dec!(10));
@@ -82,10 +77,7 @@ mod nft_marketplace_tests {
         test_engine.jump_epochs(5);
         let amount_owned_before = test_engine.current_balance("xrd");
         test_engine
-            .call_method_builder(
-                "buy",
-                env_args![Environment::FungibleBucket("xrd", dec!(10))],
-            )
+            .call_method_builder("buy", env_args![Fungible::Bucket("xrd", 10)])
             .output("tests/nft_marketplace/package/manifests/", "buy")
             .execute();
         let amount_owned_after = test_engine.current_balance("radix");
@@ -99,7 +91,7 @@ mod nft_marketplace_tests {
         new_buyer(&mut test_engine, "buyer");
         test_engine.jump_epochs(3);
         test_engine.call_method("buy", env_args![
-            Environment::FungibleBucket("xrd", dec!(5))
+            Fungible::Bucket("xrd", 5)
         ]).assert_failed_with("[Buy]: Invalid quantity was provided. This sale can only go through when 8.5 tokens are provided.");
     }
 
