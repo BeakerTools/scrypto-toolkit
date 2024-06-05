@@ -1,9 +1,5 @@
 mod gumball_machine_tests {
-    use radix_engine::types::{dec, Decimal};
-    use test_engine::environment::Fungible;
-    use test_engine::receipt_traits::{GetReturn, Outcome};
-    use test_engine::test_engine::TestEngine;
-    use test_engine::{env_args, global_package};
+    use test_engine::prelude::*;
 
     global_package!(GUMBALL_PACKAGE, "tests/gumball_machine/package");
 

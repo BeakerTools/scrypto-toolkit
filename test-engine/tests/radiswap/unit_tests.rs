@@ -1,9 +1,5 @@
 mod radiswap_tests {
-    use radix_engine::types::dec;
-    use radix_engine_interface::blueprints::resource::OwnerRole;
-    use test_engine::environment::{Environment, Fungible};
-    use test_engine::test_engine::TestEngine;
-    use test_engine::{env_args, global_package};
+    use test_engine::prelude::*;
 
     global_package!(RADISWAP_PACKAGE, "tests/radiswap/package");
 

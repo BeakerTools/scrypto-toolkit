@@ -20,6 +20,7 @@ impl<T: ScryptoEncode + ScryptoDecode + ScryptoDescribe + Categorize<ScryptoCust
 }
 
 #[derive(ScryptoSbor)]
+#[sbor(categorize_types = "V")]
 pub struct BigVec<V: BigVecElement> {
     pub start_index: usize,
     pub capacity_per_vec: usize,

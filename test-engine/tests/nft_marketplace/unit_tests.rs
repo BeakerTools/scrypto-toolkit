@@ -1,11 +1,5 @@
 mod nft_marketplace_tests {
-    use radix_engine_interface::dec;
-
-    use test_engine::environment::{Environment, Fungible, NonFungible};
-    use test_engine::method_call::ComplexMethodCaller;
-    use test_engine::receipt_traits::Outcome;
-    use test_engine::test_engine::TestEngine;
-    use test_engine::{env_args, env_vec, global_package};
+    use test_engine::prelude::*;
 
     global_package!(NFT_MARKETPLACE_PACKAGE, "tests/nft_marketplace/package");
 

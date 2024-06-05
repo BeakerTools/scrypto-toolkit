@@ -1,7 +1,7 @@
 use crate::call_builder::CallBuilder;
 use crate::environment::EnvironmentEncode;
+use crate::internal_prelude::*;
 use crate::references::{GlobalReference, ResourceReference};
-use radix_engine::transaction::TransactionReceipt;
 
 pub trait SimpleMethodCaller {
     /// Makes a simple call to a method of the current component.

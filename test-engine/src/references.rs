@@ -1,6 +1,5 @@
+use crate::internal_prelude::*;
 use crate::test_engine::TestEngine;
-use radix_engine_common::prelude::ResourceAddress;
-use radix_engine_common::types::{ComponentAddress, GlobalAddress};
 
 ///
 pub trait ReferenceName {

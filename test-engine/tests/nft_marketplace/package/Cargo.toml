@@ -4,13 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sbor = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
-scrypto = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
-
-[dev-dependencies]
-transaction = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
-radix-engine = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
-scrypto-unit = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
+sbor = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
+scrypto = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
 
 [profile.release]
 opt-level = 'z'        # Optimize for size.

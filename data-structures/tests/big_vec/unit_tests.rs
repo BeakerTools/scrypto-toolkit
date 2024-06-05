@@ -1,6 +1,4 @@
-use test_engine::receipt_traits::{GetReturn, Outcome};
-use test_engine::test_engine::TestEngine;
-use test_engine::{env_args, global_package};
+use test_engine::prelude::*;
 
 global_package!(BIG_VEC_PACKAGE, "tests/big_vec/package");
 

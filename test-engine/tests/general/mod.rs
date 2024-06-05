@@ -1,8 +1,4 @@
-use radix_engine::types::dec;
-use radix_engine_common::network::NetworkDefinition;
-use radix_engine_common::prelude::ResourceAddress;
-use test_engine::receipt_traits::Outcome;
-use test_engine::test_engine::TestEngine;
+use test_engine::prelude::*;
 
 #[test]
 fn test_pre_allocated_token() {

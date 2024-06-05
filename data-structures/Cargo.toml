@@ -7,8 +7,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sbor = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
-scrypto = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.1.1" }
+sbor = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
+scrypto = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
 
 [dev-dependencies]
 test-engine = { path = "../test-engine" }

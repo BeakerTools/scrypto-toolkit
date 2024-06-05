@@ -1,21 +1,9 @@
 use std::collections::BTreeSet;
 use std::vec::Vec;
 
-use radix_engine::transaction::{TransactionReceipt, TransactionResult};
-use radix_engine::types::{
-    manifest_decode, ComponentAddress, Decimal, Encoder, ManifestArgs, ManifestEncoder,
-    ManifestExpression, ManifestValueKind, NonFungibleLocalId, PackageAddress, ResourceAddress,
-    FAUCET, MANIFEST_SBOR_V1_MAX_DEPTH, MANIFEST_SBOR_V1_PAYLOAD_PREFIX,
-};
-
-use transaction::builder::{ManifestBuilder, ResolvableGlobalAddress};
-use transaction::manifest::decompiler::ManifestObjectNames;
-use transaction::manifest::dumper::dump_manifest_to_file_system;
-use transaction::prelude::{dec, DynamicGlobalAddress, ResolvableArguments, TransactionManifestV1};
-
 use crate::account::Account;
 use crate::environment::{EnvironmentEncode, Fungible, NonFungible};
-use crate::manifest_args;
+use crate::internal_prelude::*;
 use crate::method_call::SimpleMethodCaller;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
@@ -352,7 +340,7 @@ impl<'a> CallBuilder<'a> {
 
         manifest.instructions.insert(
             0,
-            transaction::model::InstructionV1::CallMethod {
+            InstructionV1::CallMethod {
                 address: DynamicGlobalAddress::from(self.fee_payer),
                 method_name: "lock_fee".to_string(),
                 args: manifest_args!(self.fee_locked).resolve(),
@@ -363,22 +351,19 @@ impl<'a> CallBuilder<'a> {
     fn write_deposit(&mut self) {
         let manifest = &mut self.manifest_data.as_mut().unwrap().transaction_manifest;
 
-        manifest
-            .instructions
-            .push(transaction::model::InstructionV1::CallMethod {
-                address: DynamicGlobalAddress::from(*self.caller.address()),
-                method_name: "deposit_batch".to_string(),
-                args: manifest_args!(ManifestExpression::EntireWorktop).resolve(),
-            });
+        manifest.instructions.push(InstructionV1::CallMethod {
+            address: DynamicGlobalAddress::from(*self.caller.address()),
+            method_name: "deposit_batch".to_string(),
+            args: manifest_args!(ManifestExpression::EntireWorktop).resolve(),
+        });
     }
     fn write_badge(&mut self) {
         let manifest = &mut self.manifest_data.as_mut().unwrap().transaction_manifest;
-
         for (badge, opt_ids) in &self.admin_badge {
             if badge.is_fungible() {
                 manifest.instructions.insert(
                     1,
-                    transaction::model::InstructionV1::CallMethod {
+                    InstructionV1::CallMethod {
                         address: DynamicGlobalAddress::from(*self.caller.address()),
                         method_name: "create_proof_of_amount".to_string(),
                         args: manifest_args!(badge, Decimal::one()).resolve(),
@@ -387,7 +372,7 @@ impl<'a> CallBuilder<'a> {
             } else {
                 manifest.instructions.insert(
                     1,
-                    transaction::model::InstructionV1::CallMethod {
+                    InstructionV1::CallMethod {
                         address: DynamicGlobalAddress::from(*self.caller.address()),
                         method_name: "create_proof_of_non_fungibles".to_string(),
                         args: manifest_args!(badge, opt_ids.clone().unwrap()).resolve(),

@@ -1,12 +1,4 @@
-use radix_engine::prelude::ValueKind;
-use radix_engine::types::{ComponentAddress, Decimal, NonFungibleLocalId};
-use radix_engine::types::{Encode, ManifestCustomValueKind};
-use radix_engine::types::{Encoder, ManifestEncoder};
-use radix_engine_interface::count;
-use transaction::builder::ManifestBuilder;
-use transaction::model::InstructionV1;
-
-use crate::manifest_args;
+use crate::internal_prelude::*;
 use crate::references::{ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
 

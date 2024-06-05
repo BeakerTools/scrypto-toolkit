@@ -5,7 +5,8 @@ macro_rules! env_args {
     );
 
      ($( $x:expr ),*) => {{
-         use test_engine::environment::EnvironmentEncode;
+         use test_engine::prelude::*;
+
          let mut temp_vec: Vec<Box<dyn EnvironmentEncode>> = vec![];
             $(
                 temp_vec.push(Box::new($x));
@@ -21,8 +22,8 @@ macro_rules! env_vec {
     );
 
      ($( $x:expr ),*) => {{
-         use test_engine::environment::EnvVec;
-         use test_engine::environment::ToEncode;
+         use test_engine::prelude::*;
+
          let mut temp_vec: Vec<Box<dyn ToEncode>> = vec![];
             $(
                 temp_vec.push(Box::new($x));
@@ -41,4 +42,21 @@ macro_rules! global_package {
                 { PackagePublishingSource::from($path).code_and_definition() };
         }
     };
+}
+
+#[macro_export]
+macro_rules! nf_ids {
+    () => (
+        vec![]
+    );
+
+     ($( $x:expr ),*) => {{
+         use test_engine::prelude::*;
+
+         let mut temp_vec: Vec<NonFungibleLocalId> = vec![];
+            $(
+                temp_vec.push($x.to_id());
+            )*
+         temp_vec
+    }};
 }
