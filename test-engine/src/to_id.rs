@@ -145,3 +145,40 @@ subtypes_impl!(BytesNonFungibleLocalId, Bytes);
 subtypes_impl!(IntegerNonFungibleLocalId, Integer);
 subtypes_impl!(RUIDNonFungibleLocalId, RUID);
 subtypes_impl!(StringNonFungibleLocalId, String);
+
+#[cfg(test)]
+mod test_to_ids {
+    use crate::prelude::*;
+
+    macro_rules! integer_test {
+        ($type_name: ident) => {
+            let test = 12 as $type_name;
+            assert_eq!(test.to_id(), NonFungibleLocalId::integer(12 as u64))
+        };
+    }
+
+    #[test]
+    fn test_nf_ids_int() {
+        integer_test!(u8);
+        integer_test!(u16);
+        integer_test!(u32);
+        integer_test!(u64);
+        integer_test!(u128);
+        integer_test!(i8);
+        integer_test!(i16);
+        integer_test!(i32);
+        integer_test!(i64);
+        integer_test!(i128);
+    }
+
+    #[test]
+    fn test_nf_ids_from_string() {
+        let str_1 = "#1#";
+        let str_2 = "<SomeId>";
+        let str_3 = "blabla";
+
+        assert_eq!(str_1.to_id(), NonFungibleLocalId::integer(1u64));
+        assert_eq!(str_2.to_id(), NonFungibleLocalId::string("SomeId").unwrap());
+        assert_eq!(str_3.to_id(), NonFungibleLocalId::string("blabla").unwrap())
+    }
+}
