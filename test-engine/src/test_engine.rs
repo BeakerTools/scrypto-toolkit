@@ -9,6 +9,7 @@ use crate::internal_prelude::*;
 use crate::method_call::{ComplexMethodCaller, SimpleMethodCaller};
 use crate::receipt_traits::Outcome;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
+use crate::to_id::ToId;
 
 pub struct TestEngine {
     engine_interface: EngineInterface,
@@ -217,11 +218,11 @@ impl TestEngine {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `ids`: ids to transfer.
-    pub fn transfer_non_fungibles<E: ReferenceName, R: ReferenceName + Clone + 'static>(
+    pub fn transfer_non_fungibles<E: ReferenceName, R: ReferenceName + Clone + 'static, T: ToId>(
         &mut self,
         recipient: E,
         resource: R,
-        ids: Vec<NonFungibleLocalId>,
+        ids: Vec<T>,
     ) -> TransactionReceipt {
         CallBuilder::new(self)
             .transfer_non_fungibles(recipient, resource, ids)
@@ -398,13 +399,13 @@ impl TestEngine {
     /// # Arguments
     /// * `resource`: reference name or address of the resource of the NFT.
     /// * `id`: local id of the NFT.
-    pub fn get_non_fungible_data<R: ResourceReference, T: NonFungibleData>(
+    pub fn get_non_fungible_data<R: ResourceReference, T: ToId, D: NonFungibleData>(
         &mut self,
         resource: R,
-        id: NonFungibleLocalId,
-    ) -> T {
+        id: T,
+    ) -> D {
         self.engine_interface
-            .get_non_fungible_data(resource.address(self), id)
+            .get_non_fungible_data(resource.address(self), id.to_id())
     }
 
     /// Updates a field of an NFT's non-fungible data.
@@ -415,17 +416,17 @@ impl TestEngine {
     /// * `field_name`: name of the field to update.
     /// * `data`: new data for this field.
     /// * `badge`: reference name or address of the badge needed to make the update.
-    pub fn update_non_fungible_data<R1: ResourceReference, R2: ResourceReference>(
+    pub fn update_non_fungible_data<R1: ResourceReference, R2: ResourceReference, T: ToId>(
         &mut self,
         resource: R1,
-        id: NonFungibleLocalId,
+        id: T,
         field_name: &str,
         mut data: Vec<Box<dyn EnvironmentEncode>>,
         badge: R2,
     ) -> TransactionReceipt {
         let resource = resource.address(self);
         let mut args: Vec<Box<dyn EnvironmentEncode>> =
-            vec![Box::new(id), Box::new(field_name.to_string())];
+            vec![Box::new(id.to_id()), Box::new(field_name.to_string())];
         args.append(&mut data);
         CallBuilder::new(self)
             .call_from_component(resource, "update_non_fungible_data", args)

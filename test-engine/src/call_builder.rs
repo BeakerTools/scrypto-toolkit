@@ -7,6 +7,7 @@ use crate::internal_prelude::*;
 use crate::method_call::SimpleMethodCaller;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
+use crate::to_id::ToId;
 
 struct TransactionManifestData {
     transaction_manifest: TransactionManifestV1,
@@ -167,17 +168,20 @@ impl<'a> CallBuilder<'a> {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `ids`: ids to transfer.
-    pub fn transfer_non_fungibles<E: ReferenceName, R: ReferenceName + Clone + 'static>(
+    pub fn transfer_non_fungibles<E: ReferenceName, R: ReferenceName + Clone + 'static, T: ToId>(
         self,
         recipient: E,
         resource: R,
-        ids: Vec<NonFungibleLocalId>,
+        ids: Vec<T>,
     ) -> Self {
         self.call_from_component(
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(NonFungible::Bucket(resource, ids)),
+                Box::new(NonFungible::Bucket(
+                    resource,
+                    ids.into_iter().map(|id| id.to_id()).collect(),
+                )),
                 Box::new(None::<u64>),
             ],
         )

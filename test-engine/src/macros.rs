@@ -60,3 +60,53 @@ macro_rules! nf_ids {
          temp_vec
     }};
 }
+
+#[macro_export]
+macro_rules! none {
+    () => {
+        None::<u64>
+    };
+}
+
+#[cfg(test)]
+mod test_macros {
+    use crate::prelude::*;
+
+    macro_rules! integer_test {
+        ($type_name: ident) => {
+            let test = 12 as $type_name;
+            assert_eq!(nf_ids!(test), vec![NonFungibleLocalId::integer(12 as u64)])
+        };
+    }
+
+    #[test]
+    fn test_nf_ids_int() {
+        integer_test!(u8);
+        integer_test!(u16);
+        integer_test!(u32);
+        integer_test!(u64);
+        integer_test!(u128);
+        integer_test!(i8);
+        integer_test!(i16);
+        integer_test!(i32);
+        integer_test!(i64);
+        integer_test!(i128);
+    }
+
+    #[test]
+    fn test_nf_ids_from_string() {
+        let str_1 = "#1#";
+        let str_2 = "<SomeId>";
+        let str_3 = "blabla";
+
+        assert_eq!(nf_ids!(str_1), vec![NonFungibleLocalId::integer(1u64)]);
+        assert_eq!(
+            nf_ids!(str_2),
+            vec![NonFungibleLocalId::string("SomeId").unwrap()]
+        );
+        assert_eq!(
+            nf_ids!(str_3),
+            vec![NonFungibleLocalId::string("blabla").unwrap()]
+        )
+    }
+}

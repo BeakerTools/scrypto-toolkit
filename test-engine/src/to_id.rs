@@ -115,6 +115,12 @@ macro_rules! integer_types_impl {
     };
 }
 
+impl ToId for &str {
+    fn to_id(self) -> NonFungibleLocalId {
+        String::from(self).to_id()
+    }
+}
+
 integer_types_impl!(u8);
 integer_types_impl!(u16);
 integer_types_impl!(u32);
