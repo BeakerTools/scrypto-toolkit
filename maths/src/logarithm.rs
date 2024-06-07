@@ -1,5 +1,5 @@
 use crate::exponential::Exponential;
-use radix_engine::types::{Decimal, I192, U192};
+use crate::internal_prelude::*;
 
 pub const LN_2: Decimal = Decimal(I192::from_digits([693147180559945309, 0, 0]));
 pub const LN_10: Decimal = Decimal(I192::from_digits([2302585092994045684, 0, 0]));
@@ -77,9 +77,10 @@ impl Logarithm for Decimal {
 #[cfg(test)]
 mod test_ln {
     use crate::exponential::Exponential;
+    use crate::internal_prelude::*;
     use crate::logarithm::{Logarithm, LN_2};
     use crate::RELATIVE_PRECISION;
-    use radix_engine::types::{dec, Decimal, I192};
+    use radix_common_derive::dec;
 
     #[test]
     #[should_panic]

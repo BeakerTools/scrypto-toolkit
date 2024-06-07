@@ -1,6 +1,4 @@
-use radix_engine_interface::blueprints::transaction_processor::InstructionOutput;
-use radix_engine_interface::data::scrypto::scrypto_decode;
-use radix_engine_interface::data::scrypto::ScryptoDecode;
+use crate::internal_prelude::*;
 
 pub trait FromInstruction {
     fn from(instructions: Vec<InstructionOutput>) -> Self;

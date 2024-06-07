@@ -1,6 +1,6 @@
 use crate::exponential::Exponential;
+use crate::internal_prelude::*;
 use crate::logarithm::Logarithm;
-use radix_engine::types::Decimal;
 
 pub trait Power {
     fn pow(self, exp: Self) -> Self;
