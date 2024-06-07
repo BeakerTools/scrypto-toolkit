@@ -1,4 +1,4 @@
-use radix_engine::types::{Decimal, I192, I256};
+use crate::internal_prelude::*;
 
 pub const SMALLEST_NON_ZERO: Decimal = Decimal(I192::from_digits([
     13893700547235832536,
@@ -41,8 +41,9 @@ impl Exponential for Decimal {
 #[cfg(test)]
 mod test_exp {
     use crate::exponential::{Exponential, SMALLEST_NON_ZERO};
+    use crate::internal_prelude::*;
     use crate::RELATIVE_PRECISION;
-    use radix_engine::types::{dec, Decimal, I192};
+    use radix_common_derive::dec;
 
     #[test]
     fn test_zero() {

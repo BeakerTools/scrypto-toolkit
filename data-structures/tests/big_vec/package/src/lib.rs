@@ -1,30 +1,30 @@
+use data_structures::big_vec;
+use data_structures::big_vec::BigVec;
 use scrypto::prelude::*;
+use std::ops::Deref;
 
 #[blueprint]
-mod big_vec {
-    use data_structures::big_vec;
-    use data_structures::big_vec::BigVec;
-    use std::ops::Deref;
+mod big_vec_blueprint {
 
-    struct BigVecContract {
+    struct BigVecBlueprint {
         vec: BigVec<u32>,
     }
 
-    impl BigVecContract {
+    impl BigVecBlueprint {
         /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// ///
         ///                                                                                     ///
         ///  Interface to the `BigVec` data structures for methods that can actually be called  ///
         ///                                                                                     ///
         /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// /// ///
 
-        pub fn new() -> Global<BigVecContract> {
+        pub fn new() -> Global<BigVecBlueprint> {
             Self { vec: BigVec::new() }
                 .instantiate()
                 .prepare_to_globalize(OwnerRole::None)
                 .globalize()
         }
 
-        pub fn with_capacity_per_vec(capacity_per_vec: usize) -> Global<BigVecContract> {
+        pub fn with_capacity_per_vec(capacity_per_vec: usize) -> Global<BigVecBlueprint> {
             Self {
                 vec: BigVec::with_capacity_per_vec(capacity_per_vec),
             }
@@ -33,7 +33,7 @@ mod big_vec {
             .globalize()
         }
 
-        pub fn default() -> Global<BigVecContract> {
+        pub fn default() -> Global<BigVecBlueprint> {
             Self {
                 vec: BigVec::default(),
             }
@@ -42,7 +42,7 @@ mod big_vec {
             .globalize()
         }
 
-        pub fn from(vec: Vec<u32>) -> Global<BigVecContract> {
+        pub fn from(vec: Vec<u32>) -> Global<BigVecBlueprint> {
             Self {
                 vec: BigVec::from(vec),
             }
@@ -114,7 +114,7 @@ mod big_vec {
         ///                                          ///
         /// /// /// /// /// /// /// /// /// /// //// ///
 
-        pub fn with_macros() -> Global<BigVecContract> {
+        pub fn with_macros() -> Global<BigVecBlueprint> {
             Self {
                 vec: big_vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
             }

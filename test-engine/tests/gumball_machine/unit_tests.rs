@@ -1,9 +1,5 @@
 mod gumball_machine_tests {
-    use radix_engine::types::{dec, Decimal};
-    use test_engine::environment::Environment;
-    use test_engine::receipt_traits::{GetReturn, Outcome};
-    use test_engine::test_engine::TestEngine;
-    use test_engine::{env_args, global_package};
+    use test_engine::prelude::*;
 
     global_package!(GUMBALL_PACKAGE, "tests/gumball_machine/package");
 
@@ -21,10 +17,8 @@ mod gumball_machine_tests {
     #[test]
     fn test_buy_gumball_success() {
         let mut test_engine = instantiate_gumball();
-        let receipt = test_engine.call_method(
-            "buy_gumball",
-            env_args!(Environment::FungibleBucket("XRD", dec!(10))),
-        );
+        let receipt =
+            test_engine.call_method("buy_gumball", env_args!(Fungible::Bucket("XRD", 10)));
         receipt.assert_is_success();
         let amount_owned = test_engine.current_balance("GUM");
         assert_eq!(amount_owned, Decimal::one())
@@ -34,10 +28,7 @@ mod gumball_machine_tests {
     fn test_buy_gumball_fail() {
         let mut test_engine = instantiate_gumball();
         test_engine
-            .call_method(
-                "buy_gumball",
-                env_args!(Environment::FungibleBucket("XRD", Decimal::one())),
-            )
+            .call_method("buy_gumball", env_args!(Fungible::Bucket("XRD", 1)))
             .assert_failed_with("");
         let amount_owned = test_engine.current_balance("GUM");
         assert_eq!(amount_owned, Decimal::zero())

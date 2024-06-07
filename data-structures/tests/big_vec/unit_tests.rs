@@ -1,6 +1,4 @@
-use test_engine::receipt_traits::{GetReturn, Outcome};
-use test_engine::test_engine::TestEngine;
-use test_engine::{env_args, global_package};
+use test_engine::prelude::*;
 
 global_package!(BIG_VEC_PACKAGE, "tests/big_vec/package");
 
@@ -8,9 +6,9 @@ fn instantiate() -> TestEngine {
     let mut test_engine = TestEngine::with_package("big vec package", &BIG_VEC_PACKAGE);
     test_engine.new_component(
         "big vec comp",
-        "BigVecContract",
+        "BigVecBlueprint",
         "with_capacity_per_vec",
-        env_args!(3 as usize),
+        env_args!(3usize),
     );
     test_engine
 }
@@ -32,7 +30,7 @@ fn get_vec(test_engine: &mut TestEngine) -> Vec<u32> {
 #[test]
 fn test_new_big_vec() {
     let mut test_engine = TestEngine::with_package("big vec package", &BIG_VEC_PACKAGE);
-    test_engine.new_component("big vec comp", "BigVecContract", "new", env_args!());
+    test_engine.new_component("big vec comp", "BigVecBlueprint", "new", env_args!());
 
     let is_empty: bool = test_engine
         .call_method("is_empty", env_args!())
@@ -65,7 +63,7 @@ fn test_new_with_capacity_vec() {
 #[test]
 fn test_new_default() {
     let mut test_engine = TestEngine::with_package("big vec package", &BIG_VEC_PACKAGE);
-    test_engine.new_component("big vec comp", "BigVecContract", "default", env_args!());
+    test_engine.new_component("big vec comp", "BigVecBlueprint", "default", env_args!());
 
     let is_empty: bool = test_engine
         .call_method("is_empty", env_args!())
@@ -85,7 +83,7 @@ fn test_from() {
     let expected_items: Vec<u32> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
     test_engine.new_component(
         "big vec comp",
-        "BigVecContract",
+        "BigVecBlueprint",
         "from",
         env_args!(expected_items.clone()),
     );
@@ -232,7 +230,7 @@ fn test_insert() {
     assert_eq!(items, expected_items);
 
     test_engine
-        .new_component("ok", "BigVecContract", "new", env_args!())
+        .new_component("ok", "BigVecBlueprint", "new", env_args!())
         .assert_is_success();
     test_engine.set_current_component("ok");
     test_engine.call_method("insert", env_args!(0 as usize, 1 as u32));
