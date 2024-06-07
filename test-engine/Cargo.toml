@@ -5,12 +5,12 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-radix-common = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
-radix-engine = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
-radix-engine-interface = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
-radix-transactions = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
-scrypto-test = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
-radix-substate-store-impls = { git = "https://github.com/radixdlt/radixdlt-scrypto", tag = "v1.2.0" }
+radix-common = "1.2.0"
+radix-engine = "1.2.0"
+radix-engine-interface = "1.2.0"
+radix-transactions = "1.2.0"
+scrypto-test = "1.2.0"
+radix-substate-store-impls = "1.2.0"
 lazy_static = "1.4.0"
 indexmap = "2.2.6"
 
