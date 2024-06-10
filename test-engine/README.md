@@ -8,7 +8,7 @@ To use the library, add the following dev dependency to the `Cargo.toml` file
 
 ```
 [dev-dependencies]
-test-engine = { git = "https://github.com/BeakerTools/scrypto-toolkit", branch = "main"}
+test-engine = test-engine = { git = "https://github.com/BeakerTools/scrypto-toolkit", tag = "v0.2.1"}
 ```
 
 # Main Features
