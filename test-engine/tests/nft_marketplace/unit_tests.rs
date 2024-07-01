@@ -71,7 +71,7 @@ mod nft_marketplace_tests {
         test_engine.jump_epochs(5);
         let amount_owned_before = test_engine.current_balance("xrd");
         test_engine
-            .call_method_builder("buy", env_args![Fungible::Bucket("xrd", 10)])
+            .call("buy", env_args![Fungible::Bucket("xrd", 10)])
             .output("tests/nft_marketplace/package/manifests/", "buy")
             .execute();
         let amount_owned_after = test_engine.current_balance("radix");

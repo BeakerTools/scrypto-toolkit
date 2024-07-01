@@ -50,6 +50,14 @@ impl TestEngine {
         }
     }
 
+    pub fn with_simulator<F, R>(&mut self, action: F) -> R
+    where
+        F: FnOnce(&mut DefaultLedgerSimulator) -> R,
+    {
+        self.engine_interface
+            .with_simulator(|simulator| action(simulator))
+    }
+
     /// Returns a new TestEngine with an initial global package.
     ///
     /// # Arguments
@@ -429,7 +437,7 @@ impl TestEngine {
             vec![Box::new(id.to_id()), Box::new(field_name.to_string())];
         args.append(&mut data);
         CallBuilder::new(self)
-            .call_from_component(resource, "update_non_fungible_data", args)
+            .call_from(resource, "update_non_fungible_data", args)
             .with_badge(badge)
             .execute()
     }
@@ -748,8 +756,7 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.call_method_builder_from(global_address, method_name, args)
-            .execute()
+        self.call_from(global_address, method_name, args).execute()
     }
 
     fn call_method_with_badge<R: ResourceReference>(
@@ -758,27 +765,33 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.call_method_builder(method_name, args)
+        self.call(method_name, args)
             .with_badge(admin_badge)
             .execute()
     }
 }
 
 impl ComplexMethodCaller for TestEngine {
-    fn build_call(&mut self) -> CallBuilder {
+    fn call_builder(&mut self) -> CallBuilder {
         CallBuilder::new(self)
     }
 
-    fn call_method_builder(
+    fn call(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder {
+        let component = *self.current_component();
+        self.call_from(component, method_name, args)
+    }
+    fn call_with_badge<R: ResourceReference>(
         &mut self,
         method_name: &str,
+        admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder {
         let component = *self.current_component();
-        self.call_method_builder_from(component, method_name, args)
+        self.call_from(component, method_name, args)
+            .with_badge(admin_badge)
     }
 
-    fn call_method_builder_from<G: GlobalReference>(
+    fn call_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,

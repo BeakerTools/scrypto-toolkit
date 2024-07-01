@@ -61,7 +61,7 @@ impl<'a> CallBuilder<'a> {
     /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_from_component<G: GlobalReference>(
+    pub fn call_from<G: GlobalReference>(
         self,
         entity_name: G,
         method_name: &str,
@@ -152,7 +152,7 @@ impl<'a> CallBuilder<'a> {
     where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
-        self.call_from_component(
+        self.call_from(
             recipient,
             "try_deposit_or_abort",
             vec![
@@ -174,7 +174,7 @@ impl<'a> CallBuilder<'a> {
         resource: R,
         ids: Vec<T>,
     ) -> Self {
-        self.call_from_component(
+        self.call_from(
             recipient,
             "try_deposit_or_abort",
             vec![

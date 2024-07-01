@@ -23,6 +23,13 @@ impl EngineInterface {
         }
     }
 
+    pub fn with_simulator<F, R>(&mut self, action: F) -> R
+    where
+        F: FnOnce(&mut DefaultLedgerSimulator) -> R,
+    {
+        action(&mut self.simulator)
+    }
+
     pub fn publish_package<P: AsRef<Path>>(&mut self, package_dir: P) -> TransactionReceipt {
         self.simulator.try_publish_package(package_dir.as_ref())
     }
