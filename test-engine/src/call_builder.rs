@@ -45,6 +45,13 @@ impl<'a> CallBuilder<'a> {
         }
     }
 
+    pub fn with_test_engine<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut TestEngine) -> R,
+    {
+        f(&mut self.test_engine)
+    }
+
     /// Creates a call builder for a method call of the current component and skip the transaction execution.
     ///
     /// # Arguments
