@@ -78,4 +78,10 @@ pub trait ComplexMethodCaller {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder;
+
+    fn with_manifest_builder<F>(&mut self, f: F) -> CallBuilder
+    where
+        F: FnOnce(ManifestBuilder) -> ManifestBuilder;
+
+    fn withdraw<R: ResourceReference>(&mut self, resource: R, amount: Decimal) -> CallBuilder;
 }

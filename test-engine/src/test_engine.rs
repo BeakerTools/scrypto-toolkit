@@ -188,6 +188,19 @@ impl TestEngine {
         )
     }
 
+    /// Registers a component with a reference name.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the component.
+    /// * `component_address`: address of the component.
+    pub fn register_component<N: ReferenceName>(
+        &mut self,
+        name: N,
+        component_address: ComponentAddress,
+    ) {
+        self.components.insert(name.format(), component_address);
+    }
+
     /// Calls faucet with the current account.
     pub fn call_faucet(&mut self) {
         CallBuilder::new(self)
@@ -799,5 +812,17 @@ impl ComplexMethodCaller for TestEngine {
     ) -> CallBuilder {
         let address = global_address.address(self);
         CallBuilder::new(self).call_method_internal(address, method_name, args)
+    }
+
+    fn with_manifest_builder<F>(&mut self, f: F) -> CallBuilder
+    where
+        F: FnOnce(ManifestBuilder) -> ManifestBuilder,
+    {
+        self.call_builder().with_manifest_builder(f)
+    }
+
+    fn withdraw<R: ResourceReference>(&mut self, resource: R, amount: Decimal) -> CallBuilder {
+        let resource_address = resource.address(self);
+        self.call_builder().withdraw(resource_address, amount)
     }
 }
