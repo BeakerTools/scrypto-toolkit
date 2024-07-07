@@ -98,9 +98,10 @@ impl EngineInterface {
         &mut self,
         account: ComponentAddress,
         initial_amount: Decimal,
+        divisibility: u8,
     ) -> ResourceAddress {
         self.simulator
-            .create_fungible_resource(initial_amount, 18, account)
+            .create_fungible_resource(initial_amount, divisibility, account)
     }
 
     pub fn set_epoch(&mut self, epoch: Epoch) {

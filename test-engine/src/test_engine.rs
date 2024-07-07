@@ -259,6 +259,7 @@ impl TestEngine {
         &mut self,
         token_name: N,
         initial_distribution: D,
+        divisibility: u8,
     ) where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
@@ -268,9 +269,11 @@ impl TestEngine {
             }
             None => {
                 let account = *self.current_account().address();
-                let token_address = self
-                    .engine_interface
-                    .new_fungible(account, initial_distribution.try_into().unwrap());
+                let token_address = self.engine_interface.new_fungible(
+                    account,
+                    initial_distribution.try_into().unwrap(),
+                    divisibility,
+                );
                 self.resources.insert(token_name.format(), token_address);
             }
         }

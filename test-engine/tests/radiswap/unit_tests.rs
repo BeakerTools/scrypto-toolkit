@@ -5,8 +5,8 @@ mod radiswap_tests {
 
     fn initialize() -> TestEngine {
         let mut test_engine = TestEngine::with_package("radiswap package", &RADISWAP_PACKAGE);
-        test_engine.new_token("usd", dec!(100000));
-        test_engine.new_token("btc", dec!(100));
+        test_engine.new_token("usd", dec!(100000), 18);
+        test_engine.new_token("btc", dec!(100), 18);
         test_engine.new_component(
             "radiswap",
             "Radiswap",
