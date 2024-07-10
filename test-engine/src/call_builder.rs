@@ -138,7 +138,7 @@ impl<'a> CallBuilder<'a> {
         self.execute().expect_commit_success().clone()
     }
 
-    pub fn execute_and_expect_error(self) -> CommitResult {
+    pub fn execute_and_expect_failure(self) -> CommitResult {
         self.execute().expect_commit_failure().clone()
     }
 
@@ -192,7 +192,7 @@ impl<'a> CallBuilder<'a> {
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(Fungible::Bucket(resource.clone(), amount)),
+                Box::new(Fungible::FromAccount(resource.clone(), amount)),
                 Box::new(None::<u64>),
             ],
         )
@@ -214,7 +214,7 @@ impl<'a> CallBuilder<'a> {
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(NonFungible::Bucket(
+                Box::new(NonFungible::FromAccount(
                     resource,
                     ids.into_iter().map(|id| id.to_id()).collect(),
                 )),

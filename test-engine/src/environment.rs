@@ -80,9 +80,9 @@ pub enum Fungible<R: ResourceReference + Clone, D: TryInto<Decimal> + Clone>
 where
     <D as TryInto<Decimal>>::Error: std::fmt::Debug,
 {
-    Bucket(R, D),
-    BucketFromWorkTop(R, D),
-    Proof(R, D),
+    FromAccount(R, D),
+    FromWorkTop(R, D),
+    ProofFromAccount(R, D),
     ProofFromAuthZone(R, D),
 }
 
@@ -100,7 +100,7 @@ where
         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
     ) {
         match self {
-            Fungible::Bucket(resource, amount) => {
+            Fungible::FromAccount(resource, amount) => {
                 let resource_address = resource.address(test_engine);
                 let amount = amount.clone().try_into().unwrap();
 
@@ -116,7 +116,7 @@ where
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Fungible::BucketFromWorkTop(resource, amount) => {
+            Fungible::FromWorkTop(resource, amount) => {
                 let resource_address = resource.address(test_engine);
                 let amount = amount.clone().try_into().unwrap();
 
@@ -127,7 +127,7 @@ where
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            Fungible::Proof(resource, amount) => {
+            Fungible::ProofFromAccount(resource, amount) => {
                 let resource_address = resource.address(test_engine);
                 let amount = amount.clone().try_into().unwrap();
 
@@ -177,12 +177,12 @@ where
     }
 }
 
-pub enum FungibleAll<R: ResourceReference + Clone> {
+pub enum AllFungible<R: ResourceReference + Clone> {
     FromAccount(R),
     FromWorktop(R),
 }
 
-impl<R: ResourceReference + Clone> ToEncode for FungibleAll<R> {
+impl<R: ResourceReference + Clone> ToEncode for AllFungible<R> {
     fn to_encode<'a>(
         &self,
         test_engine: &mut TestEngine,
@@ -193,7 +193,7 @@ impl<R: ResourceReference + Clone> ToEncode for FungibleAll<R> {
         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
     ) {
         match self {
-            FungibleAll::FromAccount(resource) => {
+            AllFungible::FromAccount(resource) => {
                 let amount_owned = test_engine.current_balance(resource.clone());
                 let resource_address = resource.address(test_engine);
 
@@ -209,7 +209,7 @@ impl<R: ResourceReference + Clone> ToEncode for FungibleAll<R> {
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            FungibleAll::FromWorktop(resource) => {
+            AllFungible::FromWorktop(resource) => {
                 let resource_address = resource.address(test_engine);
 
                 let (manifest_builder, bucket) =
@@ -222,7 +222,7 @@ impl<R: ResourceReference + Clone> ToEncode for FungibleAll<R> {
     }
 }
 
-impl<R: ResourceReference + Clone> EnvironmentEncode for FungibleAll<R> {
+impl<R: ResourceReference + Clone> EnvironmentEncode for AllFungible<R> {
     fn encode(
         &self,
         test_engine: &mut TestEngine,
@@ -237,9 +237,9 @@ impl<R: ResourceReference + Clone> EnvironmentEncode for FungibleAll<R> {
 }
 
 pub enum NonFungible<R: ResourceReference + Clone> {
-    Bucket(R, Vec<NonFungibleLocalId>),
-    BucketFromWorktop(R, Vec<NonFungibleLocalId>),
-    Proof(R, Vec<NonFungibleLocalId>),
+    FromAccount(R, Vec<NonFungibleLocalId>),
+    FromWorktop(R, Vec<NonFungibleLocalId>),
+    ProofFromAccount(R, Vec<NonFungibleLocalId>),
     ProofFromAuthZone(R, Vec<NonFungibleLocalId>),
 }
 
@@ -254,7 +254,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
     ) {
         match self {
-            NonFungible::Bucket(resource, ids) => {
+            NonFungible::FromAccount(resource, ids) => {
                 let resource_address = resource.address(test_engine);
 
                 let manifest_builder = manifest_builder.call_method(
@@ -270,7 +270,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                 );
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            NonFungible::BucketFromWorktop(resource, ids) => {
+            NonFungible::FromWorktop(resource, ids) => {
                 let resource_address = resource.address(test_engine);
                 let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
                     InstructionV1::TakeNonFungiblesFromWorktop {
@@ -280,7 +280,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                 );
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
             }
-            NonFungible::Proof(resource, ids) => {
+            NonFungible::ProofFromAccount(resource, ids) => {
                 let resource_address = resource.address(test_engine);
                 let manifest_builder = manifest_builder.call_method(
                     caller,

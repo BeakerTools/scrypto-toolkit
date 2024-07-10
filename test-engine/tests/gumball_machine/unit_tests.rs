@@ -18,7 +18,7 @@ mod gumball_machine_tests {
     fn test_buy_gumball_success() {
         let mut test_engine = instantiate_gumball();
         let receipt =
-            test_engine.call_method("buy_gumball", env_args!(Fungible::Bucket("XRD", 10)));
+            test_engine.call_method("buy_gumball", env_args!(Fungible::FromAccount("XRD", 10)));
         receipt.assert_is_success();
         let amount_owned = test_engine.current_balance("GUM");
         assert_eq!(amount_owned, Decimal::one())
@@ -28,7 +28,7 @@ mod gumball_machine_tests {
     fn test_buy_gumball_fail() {
         let mut test_engine = instantiate_gumball();
         test_engine
-            .call_method("buy_gumball", env_args!(Fungible::Bucket("XRD", 1)))
+            .call_method("buy_gumball", env_args!(Fungible::FromAccount("XRD", 1)))
             .assert_failed_with("");
         let amount_owned = test_engine.current_balance("GUM");
         assert_eq!(amount_owned, Decimal::zero())
