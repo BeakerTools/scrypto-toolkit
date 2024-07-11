@@ -21,14 +21,14 @@ macro_rules! env_vec {
         vec![]
     );
 
-     ($( $x:expr ),*) => {{
-         use test_engine::prelude::*;
+    ($( $x:expr ),*) => {{
+        use test_engine::prelude::*;
 
-         let mut temp_vec: Vec<Box<dyn ToEncode>> = vec![];
-            $(
-                temp_vec.push(Box::new($x));
-            )*
-         EnvVec::from_vec(temp_vec)
+        let mut temp_vec: Vec<Box<dyn ToEncode>> = vec![];
+        $(
+            temp_vec.push(Box::new($x));
+        )*
+        EnvVec::from_vec(temp_vec)
     }};
 }
 

@@ -218,15 +218,15 @@ impl TestEngine {
     pub fn transfer<
         E: ReferenceName,
         R: ReferenceName + Clone + 'static,
-        D: TryInto<Decimal> + Clone + 'static,
+        // D: TryInto<Decimal> + Clone + 'static,
     >(
         &mut self,
         recipient: E,
         resource: R,
-        amount: D,
+        amount: Decimal,
     ) -> TransactionReceipt
-    where
-        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+// where
+    //     <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
         CallBuilder::new(self)
             .transfer(recipient, resource, amount)

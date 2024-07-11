@@ -178,15 +178,15 @@ impl<'a> CallBuilder<'a> {
     pub fn transfer<
         E: ReferenceName,
         R: ReferenceName + Clone + 'static,
-        D: TryInto<Decimal> + Clone + 'static,
+        // D: TryInto<Decimal> + Clone + 'static,
     >(
         self,
         recipient: E,
         resource: R,
-        amount: D,
+        amount: Decimal,
     ) -> Self
-    where
-        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+// where
+    //     <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
         self.call_from(
             recipient,
