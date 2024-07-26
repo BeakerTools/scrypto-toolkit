@@ -24,9 +24,8 @@ pub struct TestEngine {
 
 impl TestEngine {
     /// Returns a new TestEngine.
-    pub fn new() -> Self {
-        let mut engine_interface = EngineInterface::new();
 
+    fn _new(mut engine_interface: EngineInterface) -> Self {
         let default_account = Account::new(&mut engine_interface);
         let mut accounts = HashMap::new();
         accounts.insert("default".format(), default_account);
@@ -48,6 +47,14 @@ impl TestEngine {
             current_component: None,
             resources,
         }
+    }
+
+    pub fn new() -> Self {
+        Self::_new(EngineInterface::new())
+    }
+
+    pub fn new_with_custom_genesis(genesis: CustomGenesis) -> Self {
+        Self::_new(EngineInterface::new_with_custom_genesis(genesis))
     }
 
     pub fn with_simulator<F, R>(&mut self, action: F) -> R
@@ -207,6 +214,23 @@ impl TestEngine {
             .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
             .execute();
+    }
+
+    /// Calls faucet with the current account.
+    pub fn call_faucet_and(&mut self) -> CallBuilder {
+        CallBuilder::new(self)
+            .call_method_internal(FAUCET, "free", vec![])
+            .lock_fee("faucet", dec!(10))
+    }
+
+    /// Calls faucet with the current account.
+    pub fn call_faucet_time_n(&mut self, n: u32) {
+        for _ in 0..n {
+            CallBuilder::new(self)
+                .call_method_internal(FAUCET, "free", vec![])
+                .lock_fee("faucet", dec!(10))
+                .execute();
+        }
     }
 
     /// Transfers some fungible resources form the current account to the given recipient.

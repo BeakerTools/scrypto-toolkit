@@ -23,6 +23,16 @@ impl EngineInterface {
         }
     }
 
+    pub fn new_with_custom_genesis(genesis: CustomGenesis) -> Self {
+        let test_runner_builder = LedgerSimulatorBuilder::new()
+            .with_custom_genesis(genesis)
+            .without_kernel_trace()
+            .build();
+        Self {
+            simulator: test_runner_builder,
+        }
+    }
+
     pub fn with_simulator<F, R>(&mut self, action: F) -> R
     where
         F: FnOnce(&mut DefaultLedgerSimulator) -> R,
