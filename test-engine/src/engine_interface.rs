@@ -23,6 +23,23 @@ impl EngineInterface {
         }
     }
 
+    pub fn new_with_custom_genesis(genesis: CustomGenesis) -> Self {
+        let test_runner_builder = LedgerSimulatorBuilder::new()
+            .with_custom_genesis(genesis)
+            .without_kernel_trace()
+            .build();
+        Self {
+            simulator: test_runner_builder,
+        }
+    }
+
+    pub fn with_simulator<F, R>(&mut self, action: F) -> R
+    where
+        F: FnOnce(&mut DefaultLedgerSimulator) -> R,
+    {
+        action(&mut self.simulator)
+    }
+
     pub fn publish_package<P: AsRef<Path>>(&mut self, package_dir: P) -> TransactionReceipt {
         self.simulator.try_publish_package(package_dir.as_ref())
     }
@@ -91,9 +108,10 @@ impl EngineInterface {
         &mut self,
         account: ComponentAddress,
         initial_amount: Decimal,
+        divisibility: u8,
     ) -> ResourceAddress {
         self.simulator
-            .create_fungible_resource(initial_amount, 18, account)
+            .create_fungible_resource(initial_amount, divisibility, account)
     }
 
     pub fn set_epoch(&mut self, epoch: Epoch) {

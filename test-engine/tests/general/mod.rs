@@ -24,7 +24,7 @@ fn test_pre_allocated_token() {
 fn test_transfer() {
     let mut test_engine = TestEngine::new();
 
-    test_engine.new_token("Test token", 1000);
+    test_engine.new_token("Test token", 1000, 18);
 
     test_engine.new_account("Recipient");
     assert_eq!(test_engine.balance_of("Recipient", "Test token"), dec!(0));

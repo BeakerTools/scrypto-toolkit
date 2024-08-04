@@ -24,9 +24,8 @@ pub struct TestEngine {
 
 impl TestEngine {
     /// Returns a new TestEngine.
-    pub fn new() -> Self {
-        let mut engine_interface = EngineInterface::new();
 
+    fn _new(mut engine_interface: EngineInterface) -> Self {
         let default_account = Account::new(&mut engine_interface);
         let mut accounts = HashMap::new();
         accounts.insert("default".format(), default_account);
@@ -48,6 +47,22 @@ impl TestEngine {
             current_component: None,
             resources,
         }
+    }
+
+    pub fn new() -> Self {
+        Self::_new(EngineInterface::new())
+    }
+
+    pub fn new_with_custom_genesis(genesis: CustomGenesis) -> Self {
+        Self::_new(EngineInterface::new_with_custom_genesis(genesis))
+    }
+
+    pub fn with_simulator<F, R>(&mut self, action: F) -> R
+    where
+        F: FnOnce(&mut DefaultLedgerSimulator) -> R,
+    {
+        self.engine_interface
+            .with_simulator(|simulator| action(simulator))
     }
 
     /// Returns a new TestEngine with an initial global package.
@@ -180,12 +195,42 @@ impl TestEngine {
         )
     }
 
+    /// Registers a component with a reference name.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the component.
+    /// * `component_address`: address of the component.
+    pub fn register_component<N: ReferenceName>(
+        &mut self,
+        name: N,
+        component_address: ComponentAddress,
+    ) {
+        self.components.insert(name.format(), component_address);
+    }
+
     /// Calls faucet with the current account.
     pub fn call_faucet(&mut self) {
         CallBuilder::new(self)
             .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
             .execute();
+    }
+
+    /// Calls faucet with the current account.
+    pub fn call_faucet_and(&mut self) -> CallBuilder {
+        CallBuilder::new(self)
+            .call_method_internal(FAUCET, "free", vec![])
+            .lock_fee("faucet", dec!(10))
+    }
+
+    /// Calls faucet with the current account.
+    pub fn call_faucet_time_n(&mut self, n: u32) {
+        for _ in 0..n {
+            CallBuilder::new(self)
+                .call_method_internal(FAUCET, "free", vec![])
+                .lock_fee("faucet", dec!(10))
+                .execute();
+        }
     }
 
     /// Transfers some fungible resources form the current account to the given recipient.
@@ -197,15 +242,15 @@ impl TestEngine {
     pub fn transfer<
         E: ReferenceName,
         R: ReferenceName + Clone + 'static,
-        D: TryInto<Decimal> + Clone + 'static,
+        // D: TryInto<Decimal> + Clone + 'static,
     >(
         &mut self,
         recipient: E,
         resource: R,
-        amount: D,
+        amount: Decimal,
     ) -> TransactionReceipt
-    where
-        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+// where
+    //     <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
         CallBuilder::new(self)
             .transfer(recipient, resource, amount)
@@ -238,6 +283,7 @@ impl TestEngine {
         &mut self,
         token_name: N,
         initial_distribution: D,
+        divisibility: u8,
     ) where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
@@ -247,9 +293,11 @@ impl TestEngine {
             }
             None => {
                 let account = *self.current_account().address();
-                let token_address = self
-                    .engine_interface
-                    .new_fungible(account, initial_distribution.try_into().unwrap());
+                let token_address = self.engine_interface.new_fungible(
+                    account,
+                    initial_distribution.try_into().unwrap(),
+                    divisibility,
+                );
                 self.resources.insert(token_name.format(), token_address);
             }
         }
@@ -429,7 +477,7 @@ impl TestEngine {
             vec![Box::new(id.to_id()), Box::new(field_name.to_string())];
         args.append(&mut data);
         CallBuilder::new(self)
-            .call_from_component(resource, "update_non_fungible_data", args)
+            .call_from(resource, "update_non_fungible_data", args)
             .with_badge(badge)
             .execute()
     }
@@ -748,8 +796,7 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.call_method_builder_from(global_address, method_name, args)
-            .execute()
+        self.call_from(global_address, method_name, args).execute()
     }
 
     fn call_method_with_badge<R: ResourceReference>(
@@ -758,27 +805,33 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.call_method_builder(method_name, args)
+        self.call(method_name, args)
             .with_badge(admin_badge)
             .execute()
     }
 }
 
 impl ComplexMethodCaller for TestEngine {
-    fn build_call(&mut self) -> CallBuilder {
+    fn call_builder(&mut self) -> CallBuilder {
         CallBuilder::new(self)
     }
 
-    fn call_method_builder(
+    fn call(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder {
+        let component = *self.current_component();
+        self.call_from(component, method_name, args)
+    }
+    fn call_with_badge<R: ResourceReference>(
         &mut self,
         method_name: &str,
+        admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder {
         let component = *self.current_component();
-        self.call_method_builder_from(component, method_name, args)
+        self.call_from(component, method_name, args)
+            .with_badge(admin_badge)
     }
 
-    fn call_method_builder_from<G: GlobalReference>(
+    fn call_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,
@@ -786,5 +839,17 @@ impl ComplexMethodCaller for TestEngine {
     ) -> CallBuilder {
         let address = global_address.address(self);
         CallBuilder::new(self).call_method_internal(address, method_name, args)
+    }
+
+    fn with_manifest_builder<F>(&mut self, f: F) -> CallBuilder
+    where
+        F: FnOnce(ManifestBuilder) -> ManifestBuilder,
+    {
+        self.call_builder().with_manifest_builder(f)
+    }
+
+    fn withdraw<R: ResourceReference>(&mut self, resource: R, amount: Decimal) -> CallBuilder {
+        let resource_address = resource.address(self);
+        self.call_builder().withdraw(resource_address, amount)
     }
 }

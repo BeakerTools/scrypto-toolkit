@@ -23,6 +23,8 @@ pub struct CallBuilder<'a> {
     output_manifest: Option<(String, String)>,
     admin_badge: Vec<(ResourceAddress, Option<BTreeSet<NonFungibleLocalId>>)>,
     with_trace: bool,
+    with_tx_fee: bool,
+    log_title: Option<&'a str>,
     deposit_destination: ComponentAddress,
     manifest_data: Option<TransactionManifestData>,
 }
@@ -42,7 +44,25 @@ impl<'a> CallBuilder<'a> {
             admin_badge: vec![],
             with_trace: false,
             manifest_data: None,
+            with_tx_fee: false,
+            log_title: None,
         }
+    }
+
+    pub fn with_test_engine<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut TestEngine) -> R,
+    {
+        f(&mut self.test_engine)
+    }
+
+    pub fn with_manifest_builder<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(ManifestBuilder) -> ManifestBuilder,
+    {
+        self.manifest_builder = f(self.manifest_builder);
+
+        self
     }
 
     /// Creates a call builder for a method call of the current component and skip the transaction execution.
@@ -61,7 +81,7 @@ impl<'a> CallBuilder<'a> {
     /// * `entity_name`: reference name or address of the entity to call the method on.
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call_from_component<G: GlobalReference>(
+    pub fn call_from<G: GlobalReference>(
         self,
         entity_name: G,
         method_name: &str,
@@ -101,9 +121,25 @@ impl<'a> CallBuilder<'a> {
             true,
         );
 
+        if let Some(title) = self.log_title {
+            Self::output_log_title(title);
+        }
+
         Self::output_logs(&receipt);
 
+        if self.with_tx_fee {
+            Self::output_tx_fee(&receipt);
+        }
+
         receipt
+    }
+
+    pub fn execute_and_expect_success(self) -> CommitResult {
+        self.execute().expect_commit_success().clone()
+    }
+
+    pub fn execute_and_expect_failure(self) -> CommitResult {
+        self.execute().expect_commit_failure().clone()
     }
 
     /// Deposits the batch to the given account.
@@ -142,21 +178,21 @@ impl<'a> CallBuilder<'a> {
     pub fn transfer<
         E: ReferenceName,
         R: ReferenceName + Clone + 'static,
-        D: TryInto<Decimal> + Clone + 'static,
+        // D: TryInto<Decimal> + Clone + 'static,
     >(
         self,
         recipient: E,
         resource: R,
-        amount: D,
+        amount: Decimal,
     ) -> Self
-    where
-        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
+// where
+    //     <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
-        self.call_from_component(
+        self.call_from(
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(Fungible::Bucket(resource.clone(), amount)),
+                Box::new(Fungible::FromAccount(resource.clone(), amount)),
                 Box::new(None::<u64>),
             ],
         )
@@ -174,11 +210,11 @@ impl<'a> CallBuilder<'a> {
         resource: R,
         ids: Vec<T>,
     ) -> Self {
-        self.call_from_component(
+        self.call_from(
             recipient,
             "try_deposit_or_abort",
             vec![
-                Box::new(NonFungible::Bucket(
+                Box::new(NonFungible::FromAccount(
                     resource,
                     ids.into_iter().map(|id| id.to_id()).collect(),
                 )),
@@ -240,6 +276,20 @@ impl<'a> CallBuilder<'a> {
         self
     }
 
+    /// Displays tx fee or not.
+    ///
+    /// # Arguments
+    /// * `trace`:
+    pub fn with_log_tx_fee(mut self) -> Self {
+        self.with_tx_fee = true;
+        self
+    }
+
+    pub fn with_log_title(mut self, title: &'a str) -> Self {
+        self.log_title = Some(title);
+        self
+    }
+
     pub(crate) fn call_method_internal(
         mut self,
         component: impl ResolvableGlobalAddress,
@@ -294,7 +344,15 @@ impl<'a> CallBuilder<'a> {
             false,
         );
 
+        if let Some(title) = self.log_title {
+            Self::output_log_title(title);
+        }
+
         Self::output_logs(&receipt);
+
+        if self.with_tx_fee {
+            Self::output_tx_fee(&receipt);
+        }
 
         receipt
     }
@@ -417,6 +475,14 @@ impl<'a> CallBuilder<'a> {
                 }
             }
         }
+    }
+
+    fn output_log_title(title: &str) {
+        println!("\nTX: {title}");
+    }
+
+    fn output_tx_fee(receipt: &TransactionReceipt) {
+        println!("Transaction fees:{:?}", receipt.fee_summary.total_cost());
     }
 }
 
