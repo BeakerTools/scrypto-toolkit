@@ -53,7 +53,7 @@ impl<'a> CallBuilder<'a> {
     where
         F: FnOnce(&mut TestEngine) -> R,
     {
-        f(&mut self.test_engine)
+        f(self.test_engine)
     }
 
     pub fn with_manifest_builder<F>(mut self, f: F) -> Self
