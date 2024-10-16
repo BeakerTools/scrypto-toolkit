@@ -62,6 +62,14 @@ macro_rules! nf_ids {
 }
 
 #[macro_export]
+macro_rules! some {
+    ($x:expr) => {{
+        use test_engine::prelude::*;
+        EnvSome::new(Box::new($x))
+    }};
+}
+
+#[macro_export]
 macro_rules! none {
     () => {
         None::<u64>

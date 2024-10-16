@@ -1,8 +1,7 @@
-use std::collections::BTreeMap;
-use std::path::Path;
-
 use crate::account::Account;
 use crate::internal_prelude::*;
+use std::collections::BTreeMap;
+use std::path::Path;
 
 pub struct EngineInterface {
     simulator: DefaultLedgerSimulator,
@@ -104,6 +103,24 @@ impl EngineInterface {
         self.simulator.get_component_balance(account, resource)
     }
 
+    pub fn fungible_vault_balance(&mut self, vault: NodeId) -> Decimal {
+        self.simulator
+            .inspect_vault_balance(vault)
+            .unwrap_or(Decimal::ZERO)
+    }
+
+    pub fn non_fungible_vault_balance(&mut self, vault: NodeId) -> Vec<NonFungibleLocalId> {
+        let tmp = self
+            .simulator
+            .inspect_non_fungible_vault(vault)
+            .unwrap_or((
+                Decimal::ZERO,
+                Box::new(Vec::<NonFungibleLocalId>::new().into_iter()),
+            ))
+            .1;
+        tmp.collect()
+    }
+
     pub fn new_fungible(
         &mut self,
         account: ComponentAddress,
@@ -112,6 +129,56 @@ impl EngineInterface {
     ) -> ResourceAddress {
         self.simulator
             .create_fungible_resource(initial_amount, divisibility, account)
+    }
+
+    pub fn new_non_fungible<T: ManifestEncode + NonFungibleData>(
+        &mut self,
+        id_type: NonFungibleIdType,
+    ) -> ResourceAddress {
+        let manifest = ManifestBuilder::new()
+            .lock_fee_from_faucet()
+            .create_non_fungible_resource(
+                OwnerRole::None,
+                id_type,
+                false,
+                NonFungibleResourceRoles::single_locked_rule(AccessRule::AllowAll),
+                metadata!(),
+                None::<Vec<(NonFungibleLocalId, T)>>,
+            )
+            .build();
+        let receipt = self.execute_manifest(manifest, false, vec![]);
+        receipt.expect_commit(true).new_resource_addresses()[0]
+    }
+
+    pub fn mint_non_fungible<T: ManifestEncode>(
+        &mut self,
+        account: ComponentAddress,
+        resource_address: ResourceAddress,
+        id: NonFungibleLocalId,
+        data: T,
+    ) {
+        let manifest = ManifestBuilder::new()
+            .lock_fee_from_faucet()
+            .mint_non_fungible(resource_address, vec![(id, data)])
+            .try_deposit_entire_worktop_or_abort(account, None)
+            .build();
+
+        self.execute_manifest(manifest, false, vec![]);
+    }
+
+    pub fn mint_ruid_non_fungible<T: ManifestEncode>(
+        &mut self,
+        account: ComponentAddress,
+        resource_address: ResourceAddress,
+        data: T,
+    ) {
+        let manifest = ManifestBuilder::new()
+            .lock_fee_from_faucet()
+            .mint_ruid_non_fungible(resource_address, vec![data])
+            .try_deposit_entire_worktop_or_abort(account, None)
+            .build();
+
+        self.execute_manifest(manifest, false, vec![]);
     }
 
     pub fn set_epoch(&mut self, epoch: Epoch) {
@@ -189,6 +256,23 @@ impl EngineInterface {
         );
 
         receipt.expect_commit(true).new_resource_addresses()[0]
+    }
+
+    pub fn get_ids_map(
+        &mut self,
+        resource_address: ResourceAddress,
+    ) -> HashMap<ComponentAddress, Vec<NonFungibleLocalId>> {
+        let mut ids_map = HashMap::new();
+        self.simulator
+            .find_all_components()
+            .into_iter()
+            .for_each(|comp| {
+                let ids = self.nft_ids(comp, resource_address);
+                if !ids.is_empty() {
+                    ids_map.insert(comp, ids);
+                }
+            });
+        ids_map
     }
 
     pub fn get_state<T: ScryptoDecode>(&self, component_address: ComponentAddress) -> T {

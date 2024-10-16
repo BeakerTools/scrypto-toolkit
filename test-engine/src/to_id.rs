@@ -10,12 +10,6 @@ impl ToId for NonFungibleLocalId {
     }
 }
 
-impl ToId for u64 {
-    fn to_id(self) -> NonFungibleLocalId {
-        NonFungibleLocalId::integer(self)
-    }
-}
-
 impl ToId for Vec<u8> {
     fn to_id(self) -> NonFungibleLocalId {
         NonFungibleLocalId::bytes(self).unwrap()
@@ -124,6 +118,7 @@ impl ToId for &str {
 integer_types_impl!(u8);
 integer_types_impl!(u16);
 integer_types_impl!(u32);
+integer_types_impl!(u64);
 integer_types_impl!(u128);
 integer_types_impl!(i8);
 integer_types_impl!(i16);

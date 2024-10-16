@@ -98,7 +98,7 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
         match self {
             Fungible::FromAccount(resource, amount) => {
                 let resource_address = resource.address(test_engine);
-                let amount = amount.clone().try_into().unwrap();
+                let amount = *amount;
 
                 let manifest_builder = manifest_builder.call_method(
                     caller,
@@ -114,7 +114,7 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
             }
             Fungible::FromWorkTop(resource, amount) => {
                 let resource_address = resource.address(test_engine);
-                let amount = amount.clone().try_into().unwrap();
+                let amount = *amount;
 
                 let (manifest_builder, bucket) =
                     manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
@@ -147,35 +147,7 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
                         resource_address,
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-            } // Fungible::ProofFromAccount(resource, amount) => {
-              //     let resource_address = resource.address(test_engine);
-              //     let amount = amount.clone().try_into().unwrap();
-
-              //     let manifest_builder = manifest_builder.call_method(
-              //         caller,
-              //         "create_proof_of_amount",
-              //         manifest_args!(resource_address, amount),
-              //     );
-              //     let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-              //         InstructionV1::CreateProofFromAuthZoneOfAmount {
-              //             amount,
-              //             resource_address,
-              //         },
-              //     );
-              //     (manifest_builder, Box::new(proof.new_proof.unwrap()))
-              // }
-              // Fungible::ProofFromAuthZone(resource, amount) => {
-              //     let resource_address = resource.address(test_engine);
-              //     let amount = amount.clone().try_into().unwrap();
-
-              //     let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-              //         InstructionV1::CreateProofFromAuthZoneOfAmount {
-              //             amount,
-              //             resource_address,
-              //         },
-              //     );
-              //     (manifest_builder, Box::new(proof.new_proof.unwrap()))
-              // }
+            }
         }
     }
 }
@@ -193,65 +165,6 @@ impl<R: ResourceReference + Clone> EnvironmentEncode for Fungible<R> {
         manifest_builder
     }
 }
-
-// pub enum AllFungible<R: ResourceReference + Clone> {
-//     FromAccount(R),
-//     FromWorktop(R),
-// }
-
-// impl<R: ResourceReference + Clone> ToEncode for AllFungible<R> {
-//     fn to_encode<'a>(
-//         &self,
-//         test_engine: &mut TestEngine,
-//         manifest_builder: ManifestBuilder,
-//         caller: ComponentAddress,
-//     ) -> (
-//         ManifestBuilder,
-//         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-//     ) {
-//         match self {
-//             AllFungible::FromAccount(resource) => {
-//                 let amount_owned = test_engine.current_balance(resource.clone());
-//                 let resource_address = resource.address(test_engine);
-
-//                 let manifest_builder = manifest_builder.call_method(
-//                     caller,
-//                     "withdraw",
-//                     manifest_args!(resource_address, amount_owned),
-//                 );
-//                 let (manifest_builder, bucket) =
-//                     manifest_builder.add_instruction_advanced(InstructionV1::TakeFromWorktop {
-//                         resource_address,
-//                         amount: amount_owned,
-//                     });
-//                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-//             }
-//             AllFungible::FromWorktop(resource) => {
-//                 let resource_address = resource.address(test_engine);
-
-//                 let (manifest_builder, bucket) =
-//                     manifest_builder.add_instruction_advanced(InstructionV1::TakeAllFromWorktop {
-//                         resource_address,
-//                     });
-//                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-//             }
-//         }
-//     }
-// }
-
-// impl<R: ResourceReference + Clone> EnvironmentEncode for AllFungible<R> {
-//     fn encode(
-//         &self,
-//         test_engine: &mut TestEngine,
-//         manifest_builder: ManifestBuilder,
-//         encoder: &mut ManifestEncoder,
-//         caller: ComponentAddress,
-//     ) -> ManifestBuilder {
-//         let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
-//         encoder.encode(encoded.as_ref()).expect("Could not encode");
-//         manifest_builder
-//     }
-// }
 
 // Non Fungible
 
@@ -325,31 +238,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                         resource_address,
                     });
                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-            } // NonFungible::NonProofFromAccount(resource, ids) => {
-              //     let resource_address = resource.address(test_engine);
-              //     let manifest_builder = manifest_builder.call_method(
-              //         caller,
-              //         "create_proof_of_non_fungibles",
-              //         manifest_args!(resource_address, ids.clone()),
-              //     );
-              //     let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-              //         InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
-              //             resource_address,
-              //             ids: ids.clone(),
-              //         },
-              //     );
-              //     (manifest_builder, Box::new(proof.new_proof.unwrap()))
-              // }
-              // NonFungible::NonProofFromAuthZone(resource, ids) => {
-              //     let resource_address = resource.address(test_engine);
-              //     let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-              //         InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
-              //             resource_address,
-              //             ids: ids.clone(),
-              //         },
-              //     );
-              //     (manifest_builder, Box::new(proof.new_proof.unwrap()))
-              // }
+            }
         }
     }
 }
@@ -367,52 +256,6 @@ impl<R: ResourceReference + Clone> EnvironmentEncode for NonFungible<R> {
         manifest_builder
     }
 }
-
-// pub enum NonFungibleAll<R: ResourceReference + Clone> {
-//     AllFromAccount(R),
-//     AllFromWorktop(R),
-// }
-
-// impl<R: ResourceReference + Clone> ToEncode for NonFungibleAll<R> {
-//     fn to_encode<'a>(
-//         &self,
-//         test_engine: &mut TestEngine,
-//         manifest_builder: ManifestBuilder,
-//         caller: ComponentAddress,
-//     ) -> (
-//         ManifestBuilder,
-//         Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-//     ) {
-//         match self {
-//             NonFungibleAll::AllFromAccount(resource) => {
-//                 let ids_owned = test_engine.current_ids_balance(resource.clone());
-//                 let resource_address = resource.address(test_engine);
-
-//                 let manifest_builder = manifest_builder.call_method(
-//                     caller,
-//                     "withdraw_non_fungibles",
-//                     manifest_args!(resource_address, ids_owned.clone()),
-//                 );
-//                 let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
-//                     InstructionV1::TakeNonFungiblesFromWorktop {
-//                         resource_address,
-//                         ids: ids_owned,
-//                     },
-//                 );
-//                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-//             }
-//             NonFungibleAll::AllFromWorktop(resource) => {
-//                 let resource_address = resource.address(test_engine);
-
-//                 let (manifest_builder, bucket) =
-//                     manifest_builder.add_instruction_advanced(InstructionV1::TakeAllFromWorktop {
-//                         resource_address,
-//                     });
-//                 (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
-//             }
-//         }
-//     }
-// }
 
 // Proofs
 
@@ -436,29 +279,27 @@ impl<R: ResourceReference + Clone> ToEncode for ProofOf<R> {
         match self {
             ProofOf::FungibleFromAccount(resource, amount) => {
                 let resource_address = resource.address(test_engine);
-                let amount = amount.clone().try_into().unwrap();
+                let amount = *amount;
 
                 let manifest_builder = manifest_builder.call_method(
                     caller,
                     "create_proof_of_amount",
                     manifest_args!(resource_address, amount),
                 );
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-                    InstructionV1::CreateProofFromAuthZoneOfAmount {
-                        amount,
-                        resource_address,
-                    },
-                );
+
+                let (manifest_builder, proof) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::PopFromAuthZone);
+
                 (manifest_builder, Box::new(proof.new_proof.unwrap()))
             }
             ProofOf::FungibleFromAuthZone(resource, amount) => {
                 let resource_address = resource.address(test_engine);
-                let amount = amount.clone().try_into().unwrap();
+                let amount = *amount;
 
                 let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
                     InstructionV1::CreateProofFromAuthZoneOfAmount {
-                        amount,
                         resource_address,
+                        amount,
                     },
                 );
                 (manifest_builder, Box::new(proof.new_proof.unwrap()))
@@ -470,12 +311,10 @@ impl<R: ResourceReference + Clone> ToEncode for ProofOf<R> {
                     "create_proof_of_non_fungibles",
                     manifest_args!(resource_address, ids.clone()),
                 );
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
-                    InstructionV1::CreateProofFromAuthZoneOfNonFungibles {
-                        resource_address,
-                        ids: ids.clone(),
-                    },
-                );
+
+                let (manifest_builder, proof) =
+                    manifest_builder.add_instruction_advanced(InstructionV1::PopFromAuthZone);
+
                 (manifest_builder, Box::new(proof.new_proof.unwrap()))
             }
             ProofOf::NonFungibleFromAuthZone(resource, ids) => {
@@ -555,6 +394,37 @@ impl EnvironmentEncode for EnvVec {
             encoder.encode_deeper_body(elem.as_ref()).expect("OK");
         }
         manifest_builder
+    }
+}
+
+pub struct EnvSome {
+    element: Box<dyn ToEncode>,
+}
+
+impl EnvSome {
+    pub fn new(element: Box<dyn ToEncode>) -> Self {
+        Self { element }
+    }
+}
+
+impl EnvironmentEncode for EnvSome {
+    fn encode(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        encoder: &mut ManifestEncoder,
+        caller: ComponentAddress,
+    ) -> ManifestBuilder {
+        let (mb, encode) = self
+            .element
+            .to_encode(test_engine, manifest_builder, caller);
+
+        encoder.write_value_kind(ValueKind::Enum).expect("");
+        encoder.write_discriminator(OPTION_VARIANT_SOME).expect("");
+        encoder.write_size(1).expect("");
+        encoder.encode(encode.as_ref()).expect("");
+
+        mb
     }
 }
 

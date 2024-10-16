@@ -130,6 +130,15 @@ impl TestEngine {
         };
     }
 
+    /// Creates a new account with a reference name and sets it as the new current account.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the account.
+    pub fn new_account_as_current<N: ReferenceName + Copy>(&mut self, name: N) {
+        self.new_account(name);
+        self.set_current_account(name);
+    }
+
     /// Instantiates a new component of the current package with a reference name.
     ///
     /// # Arguments
@@ -208,7 +217,7 @@ impl TestEngine {
         self.components.insert(name.format(), component_address);
     }
 
-    /// Calls faucet with the current account.
+    /// Calls faucet to get 10 000 XRD with the current account.
     pub fn call_faucet(&mut self) {
         CallBuilder::new(self)
             .call_method_internal(FAUCET, "free", vec![])
@@ -216,14 +225,17 @@ impl TestEngine {
             .execute();
     }
 
-    /// Calls faucet with the current account.
+    /// Calls faucet to get 10 000 XRD with the current account.
     pub fn call_faucet_and(&mut self) -> CallBuilder {
         CallBuilder::new(self)
             .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
     }
 
-    /// Calls faucet with the current account.
+    /// Calls faucet to get 10 000 XRD `n` times with the current account.
+    ///
+    /// # Arguments
+    /// * `n`: number of times to call the faucet.
     pub fn call_faucet_time_n(&mut self, n: u32) {
         for _ in 0..n {
             CallBuilder::new(self)
@@ -356,6 +368,65 @@ impl TestEngine {
         }
     }
 
+    /// Creates a new non-fungible resource with all rules set to `AllowAll` and with  a given ID type.
+    ///
+    /// # Arguments
+    /// * `resource_name`: name that will be used to reference the resource.
+    /// * `id_type`: type for the non-fungible ID.
+    pub fn new_non_fungible_resource<N: ReferenceName, T: ManifestEncode + NonFungibleData>(
+        &mut self,
+        resource_name: N,
+        id_type: NonFungibleIdType,
+    ) {
+        match self.resources.get(&resource_name.format()) {
+            Some(_) => {
+                panic!(
+                    "Resource with name {} already exists",
+                    resource_name.format()
+                );
+            }
+            None => {
+                let resource_address = self.engine_interface.new_non_fungible::<T>(id_type);
+                self.resources
+                    .insert(resource_name.format(), resource_address);
+            }
+        }
+    }
+
+    /// Mints a new non-fungible token for a given resource with given ID and data.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name or address of the resource.
+    /// * `id`: ID of the non-fungible token.
+    /// * `data`: Data of the non-fungible token.
+    pub fn mint_non_fungible<R: ResourceReference, I: ToId, T: ManifestEncode>(
+        &mut self,
+        resource: R,
+        id: I,
+        data: T,
+    ) {
+        let resource_address = resource.address(self);
+        let account = *self.current_account_address();
+        self.engine_interface
+            .mint_non_fungible(account, resource_address, id.to_id(), data);
+    }
+
+    /// Mints a new RUID non-fungible token for a given resource with given data.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name or address of the resource.
+    /// * `data`: Data of the non-fungible token.
+    pub fn mint_ruid_non_fungible<R: ResourceReference, T: ManifestEncode>(
+        &mut self,
+        resource: R,
+        data: T,
+    ) {
+        let resource_address = resource.address(self);
+        let account = *self.current_account_address();
+        self.engine_interface
+            .mint_ruid_non_fungible(account, resource_address, data);
+    }
+
     /// Returns the balance of the current account in the given resource.
     ///
     /// # Arguments
@@ -381,6 +452,14 @@ impl TestEngine {
         self.engine_interface.balance(entity, resource)
     }
 
+    /// Returns the balance of the given vault.
+    ///
+    /// # Arguments
+    /// * `vault`: `NodeId` of the vault.
+    pub fn vault_balance(&mut self, vault: Vault) -> Decimal {
+        self.engine_interface.fungible_vault_balance(vault.0 .0)
+    }
+
     /// Returns the IDs of the given non-fungible resource owned by the current account.
     ///
     /// # Arguments
@@ -392,6 +471,14 @@ impl TestEngine {
         let account = *self.current_account_address();
         let resource = resource.address(self);
         self.engine_interface.nft_ids(account, resource)
+    }
+
+    /// Returns the IDs in the given vault.
+    ///
+    /// # Arguments
+    /// * `vault`: `NodeId` of the vault.
+    pub fn ids_vault_balance(&mut self, vault: Vault) -> Vec<NonFungibleLocalId> {
+        self.engine_interface.non_fungible_vault_balance(vault.0 .0)
     }
 
     /// Returns the IDs of the given non-fungible resource owned by the given account.
@@ -407,6 +494,16 @@ impl TestEngine {
         let entity = entity.address(self);
         let resource = resource.address(self);
         self.engine_interface.nft_ids(entity, resource)
+    }
+
+    pub fn all_ids_balance<R: ResourceReference>(
+        &mut self,
+        resource: R,
+    ) -> Vec<(ComponentAddress, Vec<NonFungibleLocalId>)> {
+        self.engine_interface
+            .get_ids_map(resource.address(&self))
+            .into_iter()
+            .collect()
     }
 
     /// Moves to next epoch.
