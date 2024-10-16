@@ -496,6 +496,16 @@ impl TestEngine {
         self.engine_interface.nft_ids(entity, resource)
     }
 
+    pub fn all_ids_balance<R: ResourceReference>(
+        &mut self,
+        resource: R,
+    ) -> Vec<(ComponentAddress, Vec<NonFungibleLocalId>)> {
+        self.engine_interface
+            .get_ids_map(resource.address(&self))
+            .into_iter()
+            .collect()
+    }
+
     /// Moves to next epoch.
     pub fn next_epoch(&mut self) {
         let epoch = self.engine_interface.get_epoch();

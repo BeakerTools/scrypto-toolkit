@@ -258,6 +258,23 @@ impl EngineInterface {
         receipt.expect_commit(true).new_resource_addresses()[0]
     }
 
+    pub fn get_ids_map(
+        &mut self,
+        resource_address: ResourceAddress,
+    ) -> HashMap<ComponentAddress, Vec<NonFungibleLocalId>> {
+        let mut ids_map = HashMap::new();
+        self.simulator
+            .find_all_components()
+            .into_iter()
+            .for_each(|comp| {
+                let ids = self.nft_ids(comp, resource_address);
+                if !ids.is_empty() {
+                    ids_map.insert(comp, ids);
+                }
+            });
+        ids_map
+    }
+
     pub fn get_state<T: ScryptoDecode>(&self, component_address: ComponentAddress) -> T {
         self.simulator.component_state(component_address)
     }
