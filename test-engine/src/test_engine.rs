@@ -162,6 +162,14 @@ impl TestEngine {
         )
     }
 
+    /// Instantiates a new component of the current package with a reference name and a badge.
+    ///
+    /// # Arguments
+    /// * `component_name`: name that will be used to reference the component.
+    /// * `blueprint_name`: name of the blueprint.
+    /// * `instantiation_function`: name of the function that instantiates the component.
+    /// * `badge`: reference name of the resource to use for the badge.
+    /// * `args`: environment arguments to instantiate the component.
     pub fn new_component_with_badge<N: ReferenceName, R: ResourceReference>(
         &mut self,
         component_name: N,
@@ -251,19 +259,12 @@ impl TestEngine {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `amount`: amount of resources to transfer.
-    pub fn transfer<
-        E: ReferenceName,
-        R: ReferenceName + Clone + 'static,
-        // D: TryInto<Decimal> + Clone + 'static,
-    >(
+    pub fn transfer<E: ReferenceName, R: ReferenceName + Clone + 'static>(
         &mut self,
         recipient: E,
         resource: R,
         amount: Decimal,
-    ) -> TransactionReceipt
-// where
-    //     <D as TryInto<Decimal>>::Error: std::fmt::Debug,
-    {
+    ) -> TransactionReceipt {
         CallBuilder::new(self)
             .transfer(recipient, resource, amount)
             .execute()
@@ -496,6 +497,9 @@ impl TestEngine {
         self.engine_interface.nft_ids(entity, resource)
     }
 
+    /// Returns an array of component addresses with the ids they own of a given non-fungible resource.
+    ///
+    /// # Arguments: reference name of the non-fungible resource.
     pub fn all_ids_balance<R: ResourceReference>(
         &mut self,
         resource: R,
