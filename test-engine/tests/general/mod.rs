@@ -24,7 +24,7 @@ fn test_pre_allocated_token() {
 fn test_transfer() {
     let mut test_engine = TestEngine::new();
 
-    test_engine.new_token("Test token", 1000);
+    test_engine.new_token("Test token", 1000, 18);
 
     test_engine.new_account("Recipient");
     assert_eq!(test_engine.balance_of("Recipient", "Test token"), dec!(0));
@@ -33,4 +33,37 @@ fn test_transfer() {
         .transfer("Recipient", "Test token", dec!(10))
         .assert_is_success();
     assert_eq!(test_engine.balance_of("Recipient", "Test token"), dec!(10));
+}
+
+#[test]
+fn test_bug() {
+    let mut simulator = LedgerSimulatorBuilder::new()
+        .with_custom_genesis(CustomGenesis::default(
+            Epoch::of(1),
+            CustomGenesis::default_consensus_manager_config(),
+        ))
+        .without_kernel_trace()
+        .build();
+
+    let (pubkey, privkey, address) = simulator.new_account(false);
+
+    let manifest_builder = ManifestBuilder::new().lock_fee_from_faucet().call_method(
+        address,
+        "create_proof_of_amount",
+        (XRD, dec!(100)),
+    );
+    let (manifest_builder, proof) =
+        manifest_builder.add_instruction_advanced(InstructionV1::CreateProofFromAuthZoneOfAmount {
+            resource_address: XRD,
+            amount: dec!(100),
+        });
+
+    let transaction = manifest_builder.deposit_batch(address).build();
+
+    simulator
+        .execute_manifest(
+            transaction,
+            vec![NonFungibleGlobalId::from_public_key(&pubkey)],
+        )
+        .assert_is_success();
 }

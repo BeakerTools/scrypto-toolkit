@@ -5,8 +5,8 @@ mod radiswap_tests {
 
     fn initialize() -> TestEngine {
         let mut test_engine = TestEngine::with_package("radiswap package", &RADISWAP_PACKAGE);
-        test_engine.new_token("usd", dec!(100000));
-        test_engine.new_token("btc", dec!(100));
+        test_engine.new_token("usd", dec!(100000), 18);
+        test_engine.new_token("btc", dec!(100), 18);
         test_engine.new_component(
             "radiswap",
             "Radiswap",
@@ -26,8 +26,8 @@ mod radiswap_tests {
         test_engine.call_method(
             "add_liquidity",
             env_args!(
-                Fungible::Bucket("usd", dec!(1000)),
-                Fungible::Bucket("btc", dec!(1))
+                Fungible::FromAccount("usd", dec!(1000)),
+                Fungible::FromAccount("btc", dec!(1))
             ),
         );
         let usd_amount = test_engine.current_balance("usd");
@@ -42,11 +42,11 @@ mod radiswap_tests {
         test_engine.call_method(
             "add_liquidity",
             env_args!(
-                Fungible::Bucket("usd", dec!(1000)),
-                Fungible::Bucket("btc", dec!(1))
+                Fungible::FromAccount("usd", dec!(1000)),
+                Fungible::FromAccount("btc", dec!(1))
             ),
         );
-        test_engine.call_method("swap", env_args!(Fungible::Bucket("usd", dec!(1000))));
+        test_engine.call_method("swap", env_args!(Fungible::FromAccount("usd", dec!(1000))));
         let usd_amount = test_engine.current_balance("usd");
         let btc_amount = test_engine.current_balance("btc");
         assert_eq!(usd_amount, dec!(98000));

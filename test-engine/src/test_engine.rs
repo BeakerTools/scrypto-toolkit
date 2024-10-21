@@ -24,9 +24,8 @@ pub struct TestEngine {
 
 impl TestEngine {
     /// Returns a new TestEngine.
-    pub fn new() -> Self {
-        let mut engine_interface = EngineInterface::new();
 
+    fn _new(mut engine_interface: EngineInterface) -> Self {
         let default_account = Account::new(&mut engine_interface);
         let mut accounts = HashMap::new();
         accounts.insert("default".format(), default_account);
@@ -48,6 +47,22 @@ impl TestEngine {
             current_component: None,
             resources,
         }
+    }
+
+    pub fn new() -> Self {
+        Self::_new(EngineInterface::new())
+    }
+
+    pub fn new_with_custom_genesis(genesis: CustomGenesis) -> Self {
+        Self::_new(EngineInterface::new_with_custom_genesis(genesis))
+    }
+
+    pub fn with_simulator<F, R>(&mut self, action: F) -> R
+    where
+        F: FnOnce(&mut DefaultLedgerSimulator) -> R,
+    {
+        self.engine_interface
+            .with_simulator(|simulator| action(simulator))
     }
 
     /// Returns a new TestEngine with an initial global package.
@@ -115,6 +130,15 @@ impl TestEngine {
         };
     }
 
+    /// Creates a new account with a reference name and sets it as the new current account.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the account.
+    pub fn new_account_as_current<N: ReferenceName + Copy>(&mut self, name: N) {
+        self.new_account(name);
+        self.set_current_account(name);
+    }
+
     /// Instantiates a new component of the current package with a reference name.
     ///
     /// # Arguments
@@ -138,6 +162,14 @@ impl TestEngine {
         )
     }
 
+    /// Instantiates a new component of the current package with a reference name and a badge.
+    ///
+    /// # Arguments
+    /// * `component_name`: name that will be used to reference the component.
+    /// * `blueprint_name`: name of the blueprint.
+    /// * `instantiation_function`: name of the function that instantiates the component.
+    /// * `badge`: reference name of the resource to use for the badge.
+    /// * `args`: environment arguments to instantiate the component.
     pub fn new_component_with_badge<N: ReferenceName, R: ResourceReference>(
         &mut self,
         component_name: N,
@@ -180,12 +212,45 @@ impl TestEngine {
         )
     }
 
-    /// Calls faucet with the current account.
+    /// Registers a component with a reference name.
+    ///
+    /// # Arguments
+    /// * `name`: name that will be used to reference the component.
+    /// * `component_address`: address of the component.
+    pub fn register_component<N: ReferenceName>(
+        &mut self,
+        name: N,
+        component_address: ComponentAddress,
+    ) {
+        self.components.insert(name.format(), component_address);
+    }
+
+    /// Calls faucet to get 10 000 XRD with the current account.
     pub fn call_faucet(&mut self) {
         CallBuilder::new(self)
             .call_method_internal(FAUCET, "free", vec![])
             .lock_fee("faucet", dec!(10))
             .execute();
+    }
+
+    /// Calls faucet to get 10 000 XRD with the current account.
+    pub fn call_faucet_and(&mut self) -> CallBuilder {
+        CallBuilder::new(self)
+            .call_method_internal(FAUCET, "free", vec![])
+            .lock_fee("faucet", dec!(10))
+    }
+
+    /// Calls faucet to get 10 000 XRD `n` times with the current account.
+    ///
+    /// # Arguments
+    /// * `n`: number of times to call the faucet.
+    pub fn call_faucet_time_n(&mut self, n: u32) {
+        for _ in 0..n {
+            CallBuilder::new(self)
+                .call_method_internal(FAUCET, "free", vec![])
+                .lock_fee("faucet", dec!(10))
+                .execute();
+        }
     }
 
     /// Transfers some fungible resources form the current account to the given recipient.
@@ -194,19 +259,12 @@ impl TestEngine {
     /// * `recipient`: resources to transfer to.
     /// * `resource`: reference name of the resource to transfer.
     /// * `amount`: amount of resources to transfer.
-    pub fn transfer<
-        E: ReferenceName,
-        R: ReferenceName + Clone + 'static,
-        D: TryInto<Decimal> + Clone + 'static,
-    >(
+    pub fn transfer<E: ReferenceName, R: ReferenceName + Clone + 'static>(
         &mut self,
         recipient: E,
         resource: R,
-        amount: D,
-    ) -> TransactionReceipt
-    where
-        <D as TryInto<Decimal>>::Error: std::fmt::Debug,
-    {
+        amount: Decimal,
+    ) -> TransactionReceipt {
         CallBuilder::new(self)
             .transfer(recipient, resource, amount)
             .execute()
@@ -238,6 +296,7 @@ impl TestEngine {
         &mut self,
         token_name: N,
         initial_distribution: D,
+        divisibility: u8,
     ) where
         <D as TryInto<Decimal>>::Error: std::fmt::Debug,
     {
@@ -247,9 +306,11 @@ impl TestEngine {
             }
             None => {
                 let account = *self.current_account().address();
-                let token_address = self
-                    .engine_interface
-                    .new_fungible(account, initial_distribution.try_into().unwrap());
+                let token_address = self.engine_interface.new_fungible(
+                    account,
+                    initial_distribution.try_into().unwrap(),
+                    divisibility,
+                );
                 self.resources.insert(token_name.format(), token_address);
             }
         }
@@ -308,6 +369,65 @@ impl TestEngine {
         }
     }
 
+    /// Creates a new non-fungible resource with all rules set to `AllowAll` and with  a given ID type.
+    ///
+    /// # Arguments
+    /// * `resource_name`: name that will be used to reference the resource.
+    /// * `id_type`: type for the non-fungible ID.
+    pub fn new_non_fungible_resource<N: ReferenceName, T: ManifestEncode + NonFungibleData>(
+        &mut self,
+        resource_name: N,
+        id_type: NonFungibleIdType,
+    ) {
+        match self.resources.get(&resource_name.format()) {
+            Some(_) => {
+                panic!(
+                    "Resource with name {} already exists",
+                    resource_name.format()
+                );
+            }
+            None => {
+                let resource_address = self.engine_interface.new_non_fungible::<T>(id_type);
+                self.resources
+                    .insert(resource_name.format(), resource_address);
+            }
+        }
+    }
+
+    /// Mints a new non-fungible token for a given resource with given ID and data.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name or address of the resource.
+    /// * `id`: ID of the non-fungible token.
+    /// * `data`: Data of the non-fungible token.
+    pub fn mint_non_fungible<R: ResourceReference, I: ToId, T: ManifestEncode>(
+        &mut self,
+        resource: R,
+        id: I,
+        data: T,
+    ) {
+        let resource_address = resource.address(self);
+        let account = *self.current_account_address();
+        self.engine_interface
+            .mint_non_fungible(account, resource_address, id.to_id(), data);
+    }
+
+    /// Mints a new RUID non-fungible token for a given resource with given data.
+    ///
+    /// # Arguments
+    /// * `resource`: reference name or address of the resource.
+    /// * `data`: Data of the non-fungible token.
+    pub fn mint_ruid_non_fungible<R: ResourceReference, T: ManifestEncode>(
+        &mut self,
+        resource: R,
+        data: T,
+    ) {
+        let resource_address = resource.address(self);
+        let account = *self.current_account_address();
+        self.engine_interface
+            .mint_ruid_non_fungible(account, resource_address, data);
+    }
+
     /// Returns the balance of the current account in the given resource.
     ///
     /// # Arguments
@@ -333,6 +453,14 @@ impl TestEngine {
         self.engine_interface.balance(entity, resource)
     }
 
+    /// Returns the balance of the given vault.
+    ///
+    /// # Arguments
+    /// * `vault`: `NodeId` of the vault.
+    pub fn vault_balance(&mut self, vault: Vault) -> Decimal {
+        self.engine_interface.fungible_vault_balance(vault.0 .0)
+    }
+
     /// Returns the IDs of the given non-fungible resource owned by the current account.
     ///
     /// # Arguments
@@ -344,6 +472,14 @@ impl TestEngine {
         let account = *self.current_account_address();
         let resource = resource.address(self);
         self.engine_interface.nft_ids(account, resource)
+    }
+
+    /// Returns the IDs in the given vault.
+    ///
+    /// # Arguments
+    /// * `vault`: `NodeId` of the vault.
+    pub fn ids_vault_balance(&mut self, vault: Vault) -> Vec<NonFungibleLocalId> {
+        self.engine_interface.non_fungible_vault_balance(vault.0 .0)
     }
 
     /// Returns the IDs of the given non-fungible resource owned by the given account.
@@ -359,6 +495,19 @@ impl TestEngine {
         let entity = entity.address(self);
         let resource = resource.address(self);
         self.engine_interface.nft_ids(entity, resource)
+    }
+
+    /// Returns an array of component addresses with the ids they own of a given non-fungible resource.
+    ///
+    /// # Arguments: reference name of the non-fungible resource.
+    pub fn all_ids_balance<R: ResourceReference>(
+        &mut self,
+        resource: R,
+    ) -> Vec<(ComponentAddress, Vec<NonFungibleLocalId>)> {
+        self.engine_interface
+            .get_ids_map(resource.address(&self))
+            .into_iter()
+            .collect()
     }
 
     /// Moves to next epoch.
@@ -429,7 +578,7 @@ impl TestEngine {
             vec![Box::new(id.to_id()), Box::new(field_name.to_string())];
         args.append(&mut data);
         CallBuilder::new(self)
-            .call_from_component(resource, "update_non_fungible_data", args)
+            .call_from(resource, "update_non_fungible_data", args)
             .with_badge(badge)
             .execute()
     }
@@ -748,8 +897,7 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         method_name: &str,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.call_method_builder_from(global_address, method_name, args)
-            .execute()
+        self.call_from(global_address, method_name, args).execute()
     }
 
     fn call_method_with_badge<R: ResourceReference>(
@@ -758,27 +906,33 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> TransactionReceipt {
-        self.call_method_builder(method_name, args)
+        self.call(method_name, args)
             .with_badge(admin_badge)
             .execute()
     }
 }
 
 impl ComplexMethodCaller for TestEngine {
-    fn build_call(&mut self) -> CallBuilder {
+    fn call_builder(&mut self) -> CallBuilder {
         CallBuilder::new(self)
     }
 
-    fn call_method_builder(
+    fn call(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder {
+        let component = *self.current_component();
+        self.call_from(component, method_name, args)
+    }
+    fn call_with_badge<R: ResourceReference>(
         &mut self,
         method_name: &str,
+        admin_badge: R,
         args: Vec<Box<dyn EnvironmentEncode>>,
     ) -> CallBuilder {
         let component = *self.current_component();
-        self.call_method_builder_from(component, method_name, args)
+        self.call_from(component, method_name, args)
+            .with_badge(admin_badge)
     }
 
-    fn call_method_builder_from<G: GlobalReference>(
+    fn call_from<G: GlobalReference>(
         &mut self,
         global_address: G,
         method_name: &str,
@@ -786,5 +940,17 @@ impl ComplexMethodCaller for TestEngine {
     ) -> CallBuilder {
         let address = global_address.address(self);
         CallBuilder::new(self).call_method_internal(address, method_name, args)
+    }
+
+    fn with_manifest_builder<F>(&mut self, f: F) -> CallBuilder
+    where
+        F: FnOnce(ManifestBuilder) -> ManifestBuilder,
+    {
+        self.call_builder().with_manifest_builder(f)
+    }
+
+    fn withdraw<R: ResourceReference>(&mut self, resource: R, amount: Decimal) -> CallBuilder {
+        let resource_address = resource.address(self);
+        self.call_builder().withdraw(resource_address, amount)
     }
 }
