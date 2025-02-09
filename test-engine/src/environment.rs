@@ -385,7 +385,9 @@ impl EnvironmentEncode for EnvVec {
         let mut encoded = encoded.iter();
         match encoded.next() {
             None => {
-                encoder.write_value_kind(ValueKind::I8).unwrap();
+                encoder
+                    .write_value_kind(ManifestCustomValueKind::Bucket.into())
+                    .unwrap();
                 encoder.write_size(size).expect("");
             }
             Some(elem) => {
