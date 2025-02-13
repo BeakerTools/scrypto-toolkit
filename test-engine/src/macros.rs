@@ -77,6 +77,47 @@ macro_rules! none {
 }
 
 #[macro_export]
+macro_rules! global_package_from_binary {
+    ($name:ident, $release_path:expr, $package_name:expr) => {
+        lazy_static! {
+            static ref $name: (Vec<u8>, PackageDefinition) = {
+                let package_test_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR")).unwrap();
+                let release_dir = package_test_dir.join($release_path);
+                let package_name = if $package_name == "" {
+                    env!("CARGO_PKG_NAME")
+                } else {
+                    $package_name
+                };
+
+                let wasm_path = release_dir.join(format!("{}.wasm", package_name));
+
+                let definition_path = release_dir.join(format!("{}.rpd", package_name));
+
+                let code = std::fs::read(&wasm_path).unwrap_or_else(|err| {
+                    panic!(
+                        "Failed to read built WASM from path {:?} - {:?}",
+                        &wasm_path, err
+                    )
+                });
+                let definition = std::fs::read(&definition_path).unwrap_or_else(|err| {
+                    panic!(
+                        "Failed to read package definition from path {:?} - {:?}",
+                        &definition_path, err
+                    )
+                });
+                let definition = manifest_decode(&definition).unwrap_or_else(|err| {
+                    panic!(
+                        "Failed to parse package definition from path {:?} - {:?}",
+                        &definition_path, err
+                    )
+                });
+                (code, definition)
+            };
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! global_package_advanced {
     ($name:ident, $release_path:expr, $package_name:expr, $code_path:expr) => {
         lazy_static! {
