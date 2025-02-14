@@ -361,6 +361,24 @@ impl EnvVec {
     pub fn from_vec(elements: Vec<Box<dyn ToEncode>>) -> Self {
         Self { elements }
     }
+
+    pub fn new() -> Self {
+        Self {
+            elements: Vec::new(),
+        }
+    }
+
+    pub fn extend(&mut self, elements: EnvVec) {
+        self.elements.extend(elements.elements);
+    }
+}
+
+impl Iterator for EnvVec {
+    type Item = Box<dyn ToEncode>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.elements.pop()
+    }
 }
 
 impl EnvironmentEncode for EnvVec {
