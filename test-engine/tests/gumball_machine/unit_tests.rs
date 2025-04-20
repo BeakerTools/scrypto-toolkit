@@ -43,7 +43,7 @@ mod gumball_machine_tests {
     fn test_get_price() {
         let mut test_engine = instantiate_gumball();
         let receipt = test_engine.call_method("get_price", env_args!());
-        let price: Decimal = receipt.get_return();
+        let price: Decimal = receipt.get_return(1);
         assert_eq!(price, dec!(5));
     }
 }

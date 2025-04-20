@@ -1,6 +1,6 @@
 use crate::call_builder::CallBuilder;
-use crate::environment::EnvironmentEncode;
 use crate::internal_prelude::*;
+use crate::prelude::ToValue;
 use crate::references::{GlobalReference, ResourceReference};
 
 pub trait SimpleMethodCaller {
@@ -9,11 +9,7 @@ pub trait SimpleMethodCaller {
     /// # Arguments
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    fn call_method(
-        self,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt;
+    fn call_method(self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> TransactionReceipt;
 
     /// Makes a simple call to a method of a given entity.
     ///
@@ -25,7 +21,7 @@ pub trait SimpleMethodCaller {
         self,
         global_address: G,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt;
 
     /// Calls a method of the current component with a given admin badge.
@@ -38,7 +34,7 @@ pub trait SimpleMethodCaller {
         self,
         method_name: &str,
         admin_badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt;
 }
 
@@ -51,7 +47,7 @@ pub trait ComplexMethodCaller {
     /// # Arguments
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    fn call(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder;
+    fn call(&mut self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> CallBuilder;
 
     /// Returns a call builder with an initial method call with a given admin badge.
     ///
@@ -63,7 +59,7 @@ pub trait ComplexMethodCaller {
         &mut self,
         method_name: &str,
         admin_badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> CallBuilder;
 
     /// Returns a call builder with an initial method call to a given entity.
@@ -76,7 +72,7 @@ pub trait ComplexMethodCaller {
         &mut self,
         global_address: G,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> CallBuilder;
 
     fn with_manifest_builder<F>(&mut self, f: F) -> CallBuilder

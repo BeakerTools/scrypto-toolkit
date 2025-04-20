@@ -1,17 +1,13 @@
 use crate::account::Account;
-use crate::environment::{EnvironmentEncode, Fungible, NonFungible};
+use crate::environment::{Fungible, NonFungible};
 use crate::internal_prelude::*;
 use crate::method_call::SimpleMethodCaller;
-use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
+use crate::prelude::{ComponentReference, Outcome, ToValue};
+use crate::references::{GlobalReference, ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
 use crate::to_id::ToId;
 use std::collections::BTreeSet;
 use std::vec::Vec;
-
-struct TransactionManifestData {
-    transaction_manifest: TransactionManifestV1,
-    // object_names: KnownManifestObjectNames,
-}
 
 pub struct CallBuilder<'a> {
     caller: Account,
@@ -25,7 +21,7 @@ pub struct CallBuilder<'a> {
     with_tx_fee: bool,
     log_title: Option<&'a str>,
     deposit_destination: ComponentAddress,
-    manifest_data: Option<TransactionManifestData>,
+    transaction_manifest: Option<TransactionManifestV1>,
 }
 
 impl<'a> CallBuilder<'a> {
@@ -42,7 +38,7 @@ impl<'a> CallBuilder<'a> {
             output_manifest: None,
             admin_badge: vec![],
             with_trace: false,
-            manifest_data: None,
+            transaction_manifest: None,
             with_tx_fee: false,
             log_title: None,
         }
@@ -69,7 +65,7 @@ impl<'a> CallBuilder<'a> {
     /// # Arguments
     /// * `method_name`: name of the method.
     /// * `args`: environment arguments to call the method.
-    pub fn call(self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> Self {
+    pub fn call(self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> Self {
         let component = *self.test_engine.current_component();
         self.call_method_internal(component, method_name, args)
     }
@@ -84,9 +80,10 @@ impl<'a> CallBuilder<'a> {
         self,
         entity_name: G,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> Self {
         let component = entity_name.address(self.test_engine);
+
         self.call_method_internal(component, method_name, args)
     }
 
@@ -96,15 +93,13 @@ impl<'a> CallBuilder<'a> {
     /// * `name`: reference name of the component.
     pub fn set_current_component<E: ReferenceName>(self, name: E) -> Self {
         self.test_engine.set_current_component(name);
+        manifest_args!();
         self
     }
 
     /// Executes the call.
     pub fn execute(mut self) -> TransactionReceipt {
-        self.manifest_data = Some(TransactionManifestData {
-            // object_names: self.manifest_builder.object_names().clone(),
-            transaction_manifest: self.manifest_builder.build(),
-        });
+        self.transaction_manifest = Some(self.manifest_builder.build());
 
         self.manifest_builder = ManifestBuilder::new();
 
@@ -114,7 +109,7 @@ impl<'a> CallBuilder<'a> {
         self.output_manifest();
 
         let receipt = self.test_engine.execute_call(
-            self.manifest_data.unwrap().transaction_manifest,
+            self.transaction_manifest.unwrap(),
             self.with_trace,
             btreeset![self.caller.proof()],
             true,
@@ -135,12 +130,16 @@ impl<'a> CallBuilder<'a> {
         receipt
     }
 
-    pub fn execute_and_expect_success(self) -> CommitResult {
-        self.execute().expect_commit_success().clone()
+    pub fn execute_and_expect_success(self) -> TransactionReceipt {
+        self.execute().assert_is_success()
     }
 
-    pub fn execute_and_expect_failure(self) -> CommitResult {
-        self.execute().expect_commit_failure().clone()
+    pub fn execute_and_expect_failure(self) -> TransactionReceipt {
+        self.execute().assert_failed()
+    }
+
+    pub fn execute_and_expect_failure_with(self, error: &str) -> TransactionReceipt {
+        self.execute().assert_failed_with(error)
     }
 
     /// Deposits the batch to the given account.
@@ -295,28 +294,21 @@ impl<'a> CallBuilder<'a> {
         mut self,
         component: impl ReferencedManifestGlobalAddress,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> Self {
-        let mut manifest_builder = self.manifest_builder;
+        let manifest_builder = self.manifest_builder;
 
-        let mut buf = Vec::new();
-        let mut encoder = ManifestEncoder::new(&mut buf, MANIFEST_SBOR_V1_MAX_DEPTH);
-        encoder
-            .write_payload_prefix(MANIFEST_SBOR_V1_PAYLOAD_PREFIX)
-            .unwrap();
-        encoder.write_value_kind(ManifestValueKind::Tuple).unwrap();
-        encoder.write_size(args.len()).unwrap();
-        for arg in args {
-            manifest_builder = arg.encode(
-                self.test_engine,
-                manifest_builder,
-                &mut encoder,
-                *self.caller.address(),
-            );
-        }
+        let (manifest_builder, values) = args.into_iter().fold(
+            (manifest_builder, Vec::new()),
+            |(manifest_builder, mut values), arg| {
+                let (manifest_builder, encoded) =
+                    arg.to_value(self.test_engine, manifest_builder, *self.caller.address());
+                values.push(encoded);
+                (manifest_builder, values)
+            },
+        );
 
-        let value = manifest_decode(&buf).unwrap();
-        let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
+        let manifest_arg = ManifestArgs::new_from_tuple_or_panic(Value::Tuple { fields: values });
 
         let manifest_builder = manifest_builder.call_method(component, method_name, manifest_arg);
 
@@ -326,10 +318,7 @@ impl<'a> CallBuilder<'a> {
     }
 
     pub(crate) fn execute_no_update(mut self) -> TransactionReceipt {
-        self.manifest_data = Some(TransactionManifestData {
-            // object_names: self.manifest_builder.object_names().clone(),
-            transaction_manifest: self.manifest_builder.build(),
-        });
+        self.transaction_manifest = Some(self.manifest_builder.build());
 
         self.manifest_builder = ManifestBuilder::new();
 
@@ -339,7 +328,7 @@ impl<'a> CallBuilder<'a> {
         self.output_manifest();
 
         let receipt = self.test_engine.execute_call(
-            self.manifest_data.unwrap().transaction_manifest,
+            self.transaction_manifest.unwrap(),
             self.with_trace,
             btreeset![self.caller.proof()],
             false,
@@ -365,28 +354,21 @@ impl<'a> CallBuilder<'a> {
         package_address: PackageAddress,
         blueprint_name: &str,
         function_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> Self {
-        let mut manifest_builder = self.manifest_builder;
+        let manifest_builder = self.manifest_builder;
 
-        let mut buf = Vec::new();
-        let mut encoder = ManifestEncoder::new(&mut buf, MANIFEST_SBOR_V1_MAX_DEPTH);
-        encoder
-            .write_payload_prefix(MANIFEST_SBOR_V1_PAYLOAD_PREFIX)
-            .unwrap();
-        encoder.write_value_kind(ManifestValueKind::Tuple).unwrap();
-        encoder.write_size(args.len()).unwrap();
-        for arg in args {
-            manifest_builder = arg.encode(
-                self.test_engine,
-                manifest_builder,
-                &mut encoder,
-                *self.caller.address(),
-            );
-        }
+        let (manifest_builder, values) = args.into_iter().fold(
+            (manifest_builder, Vec::new()),
+            |(manifest_builder, mut values), arg| {
+                let (manifest_builder, encoded) =
+                    arg.to_value(self.test_engine, manifest_builder, *self.caller.address());
+                values.push(encoded);
+                (manifest_builder, values)
+            },
+        );
 
-        let value = manifest_decode(&buf).unwrap();
-        let manifest_arg = ManifestArgs::new_from_tuple_or_panic(value);
+        let manifest_arg = ManifestArgs::new_from_tuple_or_panic(Value::Tuple { fields: values });
 
         let manifest_builder = manifest_builder.call_function(
             package_address,
@@ -401,7 +383,7 @@ impl<'a> CallBuilder<'a> {
     }
 
     fn write_lock(&mut self) {
-        let manifest = &mut self.manifest_data.as_mut().unwrap().transaction_manifest;
+        let manifest = &mut self.transaction_manifest.as_mut().unwrap();
 
         manifest.instructions.insert(
             0,
@@ -414,7 +396,7 @@ impl<'a> CallBuilder<'a> {
     }
 
     fn write_deposit(&mut self) {
-        let manifest = &mut self.manifest_data.as_mut().unwrap().transaction_manifest;
+        let manifest = &mut self.transaction_manifest.as_mut().unwrap();
 
         manifest
             .instructions
@@ -425,7 +407,7 @@ impl<'a> CallBuilder<'a> {
             }));
     }
     fn write_badge(&mut self) {
-        let manifest = &mut self.manifest_data.as_mut().unwrap().transaction_manifest;
+        let manifest = &mut self.transaction_manifest.as_mut().unwrap();
         for (badge, opt_ids) in &self.admin_badge {
             if badge.is_fungible() {
                 manifest.instructions.insert(
@@ -450,14 +432,13 @@ impl<'a> CallBuilder<'a> {
     }
 
     fn output_manifest(&mut self) {
-        let manifest = &self.manifest_data.as_mut().unwrap().transaction_manifest;
-        // let a = manifest.transaction_manifest.clone();
+        let manifest = self.transaction_manifest.as_mut().unwrap();
+
         match &self.output_manifest {
             None => {}
             Some((path, name)) => {
                 match dump_manifest_to_file_system(
-                    manifest, //.object_names.clone(),
-                    // &manifest.transaction_manifest,
+                    manifest,
                     path,
                     Some(name),
                     &self.test_engine.network(),
@@ -492,11 +473,7 @@ impl<'a> CallBuilder<'a> {
 }
 
 impl SimpleMethodCaller for CallBuilder<'_> {
-    fn call_method(
-        self,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
+    fn call_method(self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> TransactionReceipt {
         let component = *self.test_engine.current_component();
         self.call_method_internal(component, method_name, args)
             .execute()
@@ -506,7 +483,7 @@ impl SimpleMethodCaller for CallBuilder<'_> {
         self,
         entity_name: G,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt {
         let component = entity_name.address(self.test_engine);
         self.call_method_internal(component, method_name, args)
@@ -517,7 +494,7 @@ impl SimpleMethodCaller for CallBuilder<'_> {
         self,
         method_name: &str,
         admin_badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt {
         let component = *self.test_engine.current_component();
         self.call_method_internal(component, method_name, args)

@@ -1,8 +1,8 @@
-use crate::from_instruction::FromInstruction;
 use crate::internal_prelude::*;
 
 pub trait Outcome {
     fn assert_is_success(self) -> Self;
+    fn assert_failed(self) -> Self;
     fn assert_failed_with(self, error: &str) -> Self;
 }
 
@@ -16,6 +16,23 @@ impl Outcome for TransactionReceipt {
                 TransactionOutcome::Failure(failure) => {
                     panic!("Transaction failed with: {:?}", failure);
                 }
+            },
+            TransactionResult::Reject(reject) => {
+                panic!("Transaction rejected with: {:?}", reject.reason);
+            }
+            TransactionResult::Abort(abort) => {
+                panic!("Transaction aborted with: {}", abort.reason);
+            }
+        }
+    }
+
+    fn assert_failed(self) -> Self {
+        match &self.result {
+            TransactionResult::Commit(commit) => match &commit.outcome {
+                TransactionOutcome::Success(_) => {
+                    panic!("Transaction succeeded !");
+                }
+                TransactionOutcome::Failure(_) => self,
             },
             TransactionResult::Reject(reject) => {
                 panic!("Transaction rejected with: {:?}", reject.reason);
@@ -60,19 +77,22 @@ impl Outcome for TransactionReceipt {
     }
 }
 
-pub trait GetReturn<T> {
-    fn get_return(&self) -> T;
+pub trait GetReturn {
+    fn get_return<T: FromInstruction>(&self, index: usize) -> T;
 }
 
-impl<T> GetReturn<T> for TransactionReceipt
-where
-    T: FromInstruction,
-{
+impl GetReturn for TransactionReceipt {
     /// Returns the method's return from a receipt.
-    fn get_return(&self) -> T {
+    fn get_return<T: FromInstruction>(&self, index: usize) -> T {
         match &self.result {
             TransactionResult::Commit(commit) => match &commit.outcome {
-                TransactionOutcome::Success(output) => T::from(output.clone()),
+                TransactionOutcome::Success(output) => T::from(
+                    output
+                        .get(index)
+                        .expect(&format!("No return at index {}", index))
+                        .clone(),
+                ),
+
                 TransactionOutcome::Failure(failure) => {
                     panic!("Transaction failed with: {:?}", failure);
                 }
@@ -84,5 +104,21 @@ where
                 panic!("Transaction abort with: {}", abort.reason);
             }
         }
+    }
+}
+
+pub trait FromInstruction {
+    fn from(instructions: InstructionOutput) -> Self;
+}
+
+impl<T: ScryptoDecode> FromInstruction for T {
+    fn from(instructions: InstructionOutput) -> Self {
+        let bytes = match instructions {
+            InstructionOutput::None => {
+                panic!("The method does not return anything")
+            }
+            InstructionOutput::CallReturn(bytes) => bytes,
+        };
+        scrypto_decode::<T>(&bytes).expect("Could not parse method return into given type 2")
     }
 }

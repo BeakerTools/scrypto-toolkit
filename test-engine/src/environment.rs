@@ -1,29 +1,52 @@
 use crate::internal_prelude::*;
+use crate::prelude::{ComponentReference, TestEngine};
 use crate::references::{ReferenceName, ResourceReference};
-use crate::test_engine::TestEngine;
 use std::vec::Vec;
 
-pub trait ToEncode {
-    fn to_encode<'a>(
+pub trait ToValue {
+    fn to_value<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         caller: ComponentAddress,
-    ) -> (
-        ManifestBuilder,
-        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-    );
+    ) -> (ManifestBuilder, ManifestValue);
 }
 
-pub trait EnvironmentEncode {
-    fn encode(
-        &self,
-        test_engine: &mut TestEngine,
-        manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
-        caller: ComponentAddress,
-    ) -> ManifestBuilder;
+macro_rules! env_to_value_impl {
+    ($name:ident, $getter:ident) => {
+        impl<N: ReferenceName + Clone> ToValue for $name<N> {
+            fn to_value<'a>(
+                &self,
+                test_engine: &mut TestEngine,
+                manifest_builder: ManifestBuilder,
+                _caller: ComponentAddress,
+            ) -> (ManifestBuilder, ManifestValue) {
+                let address = test_engine.$getter(self.0.clone());
+                (
+                    manifest_builder,
+                    Value::Custom {
+                        value: ManifestCustomValue::Address((address.clone()).into()),
+                    },
+                )
+            }
+        }
+    };
 }
+
+#[derive(Clone, Debug)]
+pub struct EnvResource<N: ReferenceName + Clone>(pub N);
+env_to_value_impl!(EnvResource, get_resource);
+
+#[derive(Clone, Debug)]
+pub struct EnvAccount<N: ReferenceName + Clone>(pub N);
+env_to_value_impl!(EnvAccount, get_account);
+
+#[derive(Clone, Debug)]
+pub struct EnvComponent<N: ComponentReference + Clone>(pub N);
+env_to_value_impl!(EnvComponent, get_component);
+
+pub struct EnvPackage<N: ReferenceName + Clone>(pub N);
+env_to_value_impl!(EnvPackage, get_package);
 
 pub enum Environment<N: ReferenceName + Clone> {
     Account(N),
@@ -32,53 +55,34 @@ pub enum Environment<N: ReferenceName + Clone> {
     Resource(N),
 }
 
-impl<N: ReferenceName + Clone> ToEncode for Environment<N> {
-    fn to_encode<'a>(
+impl<N: ReferenceName + Clone> ToValue for Environment<N> {
+    fn to_value<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         _caller: ComponentAddress,
-    ) -> (
-        ManifestBuilder,
-        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-    ) {
-        match self {
+    ) -> (ManifestBuilder, ManifestValue) {
+        let value = match self {
             Environment::Resource(resource) => {
-                let resource_address = test_engine.get_resource(resource.clone());
-                (manifest_builder, Box::new(resource_address))
+                ManifestCustomValue::Address(test_engine.get_resource(resource.clone()).into())
             }
             Environment::Account(address) => {
-                let account = *test_engine.get_account(address.clone());
-                (manifest_builder, Box::new(account))
+                ManifestCustomValue::Address((*test_engine.get_account(address.clone())).into())
             }
             Environment::Component(address) => {
-                let component = test_engine.get_component(address.clone());
-                (manifest_builder, Box::new(component))
+                ManifestCustomValue::Address(test_engine.get_component(address.clone()).into())
             }
             Environment::Package(address) => {
-                let package = test_engine.get_package(address.clone());
-                (manifest_builder, Box::new(package))
+                ManifestCustomValue::Address(test_engine.get_package(address.clone()).into())
             }
-        }
-    }
-}
+        };
 
-impl<N: ReferenceName + Clone> EnvironmentEncode for Environment<N> {
-    fn encode(
-        &self,
-        test_engine: &mut TestEngine,
-        manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
-        caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
-        encoder.encode(encoded.as_ref()).expect("Could not encode");
-        manifest_builder
+        (manifest_builder, Value::Custom { value })
     }
 }
 
 // Fungible
-
+#[derive(Clone, Debug)]
 pub enum Fungible<R: ResourceReference + Clone> {
     FromAccount(R, Decimal),
     FromWorkTop(R, Decimal),
@@ -86,16 +90,13 @@ pub enum Fungible<R: ResourceReference + Clone> {
     AllFromWorktop(R),
 }
 
-impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
-    fn to_encode<'a>(
+impl<R: ResourceReference + Clone> Fungible<R> {
+    pub fn to_manifest_bucket<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         caller: ComponentAddress,
-    ) -> (
-        ManifestBuilder,
-        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-    ) {
+    ) -> (ManifestBuilder, ManifestBucket) {
         match self {
             Fungible::FromAccount(resource, amount) => {
                 let resource_address = resource.address(test_engine);
@@ -112,7 +113,7 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
                         amount,
                     }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
             Fungible::FromWorkTop(resource, amount) => {
                 let resource_address = resource.address(test_engine);
@@ -124,7 +125,7 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
                         amount,
                     }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
             Fungible::AllFromAccount(resource) => {
                 let amount_owned = test_engine.current_balance(resource.clone());
@@ -141,7 +142,7 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
                         amount: amount_owned,
                     }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
             Fungible::AllFromWorktop(resource) => {
                 let resource_address = resource.address(test_engine);
@@ -149,23 +150,27 @@ impl<R: ResourceReference + Clone> ToEncode for Fungible<R> {
                 let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
                     InstructionV1::TakeAllFromWorktop(TakeAllFromWorktop { resource_address }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
         }
     }
 }
 
-impl<R: ResourceReference + Clone> EnvironmentEncode for Fungible<R> {
-    fn encode(
+impl<R: ResourceReference + Clone> ToValue for Fungible<R> {
+    fn to_value<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
-        encoder.encode(encoded.as_ref()).expect("Could not encode");
-        manifest_builder
+    ) -> (ManifestBuilder, ManifestValue) {
+        let manifest_bucket = self.to_manifest_bucket(test_engine, manifest_builder, caller);
+
+        (
+            manifest_bucket.0,
+            Value::Custom {
+                value: ManifestCustomValue::Bucket(manifest_bucket.1),
+            },
+        )
     }
 }
 
@@ -178,16 +183,13 @@ pub enum NonFungible<R: ResourceReference + Clone> {
     AllFromWorktop(R),
 }
 
-impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
-    fn to_encode<'a>(
+impl<R: ResourceReference + Clone> NonFungible<R> {
+    fn to_manifest_bucket<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         caller: ComponentAddress,
-    ) -> (
-        ManifestBuilder,
-        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-    ) {
+    ) -> (ManifestBuilder, ManifestBucket) {
         match self {
             NonFungible::FromAccount(resource, ids) => {
                 let resource_address = resource.address(test_engine);
@@ -203,7 +205,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                         ids: ids.clone(),
                     }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
             NonFungible::FromWorktop(resource, ids) => {
                 let resource_address = resource.address(test_engine);
@@ -213,7 +215,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                         ids: ids.clone(),
                     }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
 
             NonFungible::AllFromAccount(resource) => {
@@ -231,7 +233,7 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                         ids: ids_owned,
                     }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
             NonFungible::AllFromWorktop(resource) => {
                 let resource_address = resource.address(test_engine);
@@ -239,23 +241,27 @@ impl<R: ResourceReference + Clone> ToEncode for NonFungible<R> {
                 let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
                     InstructionV1::TakeAllFromWorktop(TakeAllFromWorktop { resource_address }),
                 );
-                (manifest_builder, Box::new(bucket.new_bucket.unwrap()))
+                (manifest_builder, bucket.new_bucket.unwrap())
             }
         }
     }
 }
 
-impl<R: ResourceReference + Clone> EnvironmentEncode for NonFungible<R> {
-    fn encode(
+impl<R: ResourceReference + Clone> ToValue for NonFungible<R> {
+    fn to_value<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
-        encoder.encode(encoded.as_ref()).expect("Could not encode");
-        manifest_builder
+    ) -> (ManifestBuilder, ManifestValue) {
+        let manifest_bucket = self.to_manifest_bucket(test_engine, manifest_builder, caller);
+
+        (
+            manifest_bucket.0,
+            Value::Custom {
+                value: ManifestCustomValue::Bucket(manifest_bucket.1),
+            },
+        )
     }
 }
 
@@ -268,17 +274,14 @@ pub enum ProofOf<R: ResourceReference + Clone> {
     NonFungibleFromAuthZone(R, Vec<NonFungibleLocalId>),
 }
 
-impl<R: ResourceReference + Clone> ToEncode for ProofOf<R> {
-    fn to_encode<'a>(
+impl<R: ResourceReference + Clone> ToValue for ProofOf<R> {
+    fn to_value<'a>(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
         caller: ComponentAddress,
-    ) -> (
-        ManifestBuilder,
-        Box<dyn Encode<ManifestCustomValueKind, ManifestEncoder<'a>>>,
-    ) {
-        match self {
+    ) -> (ManifestBuilder, ManifestValue) {
+        let (manifest_builder, proof) = match self {
             ProofOf::FungibleFromAccount(resource, amount) => {
                 let resource_address = resource.address(test_engine);
                 let amount = *amount;
@@ -289,24 +292,22 @@ impl<R: ResourceReference + Clone> ToEncode for ProofOf<R> {
                     manifest_args!(resource_address, amount),
                 );
 
-                let (manifest_builder, proof) = manifest_builder
-                    .add_instruction_advanced(InstructionV1::PopFromAuthZone(PopFromAuthZone));
-
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+                manifest_builder
+                    .add_instruction_advanced(InstructionV1::PopFromAuthZone(PopFromAuthZone))
             }
+
             ProofOf::FungibleFromAuthZone(resource, amount) => {
                 let resource_address = resource.address(test_engine);
                 let amount = *amount;
 
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                manifest_builder.add_instruction_advanced(
                     InstructionV1::CreateProofFromAuthZoneOfAmount(
                         CreateProofFromAuthZoneOfAmount {
                             resource_address,
                             amount,
                         },
                     ),
-                );
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+                )
             }
             ProofOf::NonFungibleFromAccount(resource, ids) => {
                 let resource_address = resource.address(test_engine);
@@ -316,49 +317,132 @@ impl<R: ResourceReference + Clone> ToEncode for ProofOf<R> {
                     manifest_args!(resource_address, ids.clone()),
                 );
 
-                let (manifest_builder, proof) = manifest_builder
-                    .add_instruction_advanced(InstructionV1::PopFromAuthZone(PopFromAuthZone));
-
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+                manifest_builder
+                    .add_instruction_advanced(InstructionV1::PopFromAuthZone(PopFromAuthZone))
             }
             ProofOf::NonFungibleFromAuthZone(resource, ids) => {
                 let resource_address = resource.address(test_engine);
-                let (manifest_builder, proof) = manifest_builder.add_instruction_advanced(
+                manifest_builder.add_instruction_advanced(
                     InstructionV1::CreateProofFromAuthZoneOfNonFungibles(
                         CreateProofFromAuthZoneOfNonFungibles {
                             resource_address,
                             ids: ids.clone(),
                         },
                     ),
-                );
-                (manifest_builder, Box::new(proof.new_proof.unwrap()))
+                )
             }
-        }
-    }
-}
+        };
 
-impl<R: ResourceReference + Clone> EnvironmentEncode for ProofOf<R> {
-    fn encode(
-        &self,
-        test_engine: &mut TestEngine,
-        manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
-        caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        let (manifest_builder, encoded) = self.to_encode(test_engine, manifest_builder, caller);
-        encoder.encode(encoded.as_ref()).expect("Could not encode");
-        manifest_builder
+        (
+            manifest_builder,
+            Value::Custom {
+                value: ManifestCustomValue::Proof(proof.new_proof.unwrap()),
+            },
+        )
     }
 }
 
 // Env Vec
 
 pub struct EnvVec {
-    elements: Vec<Box<dyn ToEncode>>,
+    value_kind: ManifestValueKind,
+    elements: Vec<Box<dyn ToValue>>,
 }
 
 impl EnvVec {
-    pub fn from_vec(elements: Vec<Box<dyn ToEncode>>) -> Self {
+    pub fn from_vec(elements: Vec<Box<dyn ToValue>>, value_kind: ManifestValueKind) -> Self {
+        Self {
+            elements,
+            value_kind,
+        }
+    }
+
+    pub fn new(value_kind: ManifestValueKind) -> Self {
+        Self {
+            elements: Vec::new(),
+            value_kind,
+        }
+    }
+
+    pub fn extend(&mut self, elements: EnvVec) {
+        self.elements.extend(elements.elements);
+    }
+
+    pub fn push(&mut self, element: Box<dyn ToValue>) {
+        self.elements.push(element);
+    }
+
+    pub fn pop(&mut self) -> Option<Box<dyn ToValue>> {
+        self.elements.pop()
+    }
+}
+
+impl Iterator for EnvVec {
+    type Item = Box<dyn ToValue>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.elements.pop()
+    }
+}
+
+impl ToValue for EnvVec {
+    fn to_value<'a>(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        caller: ComponentAddress,
+    ) -> (ManifestBuilder, ManifestValue) {
+        let (manifest_builder, vec) = self.elements.iter().fold(
+            (manifest_builder, Vec::new()),
+            |(manifest_builder, mut vec), element| {
+                let (manifest_builder, element_value) =
+                    element.to_value(test_engine, manifest_builder, caller);
+                vec.push(element_value);
+                (manifest_builder, vec)
+            },
+        );
+
+        let value_kind = if let Some(first_value) = vec.first() {
+            match first_value {
+                Value::Bool { .. } => ValueKind::Bool,
+                Value::I8 { .. } => ValueKind::I8,
+                Value::I16 { .. } => ValueKind::I16,
+                Value::I32 { .. } => ValueKind::I32,
+                Value::I64 { .. } => ValueKind::I64,
+                Value::I128 { .. } => ValueKind::I128,
+                Value::U8 { .. } => ValueKind::U8,
+                Value::U16 { .. } => ValueKind::U16,
+                Value::U32 { .. } => ValueKind::U32,
+                Value::U64 { .. } => ValueKind::U64,
+                Value::U128 { .. } => ValueKind::U128,
+                Value::String { .. } => ValueKind::String,
+                Value::Enum { .. } => ValueKind::Enum,
+                Value::Array { .. } => ValueKind::Array,
+                Value::Tuple { .. } => ValueKind::Tuple,
+                Value::Map { .. } => ValueKind::Map,
+                Value::Custom { value } => ValueKind::Custom(value.get_custom_value_kind()),
+            }
+        } else {
+            self.value_kind
+        };
+
+        let value = Value::Array {
+            element_value_kind: value_kind,
+            elements: vec,
+        };
+
+        (manifest_builder, value)
+    }
+}
+
+// Env Tuple
+
+pub struct EnvTuple {
+    elements: Vec<Box<dyn ToValue>>,
+}
+
+impl EnvTuple {
+    pub fn from_vec(elements: Vec<Box<dyn ToValue>>) -> Self {
         Self { elements }
     }
 
@@ -373,96 +457,130 @@ impl EnvVec {
     }
 }
 
-impl Iterator for EnvVec {
-    type Item = Box<dyn ToEncode>;
+// Env map
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.elements.pop()
+// Env Tuple
+
+pub struct EnvMap {
+    key_kind: ManifestValueKind,
+    value_kind: ManifestValueKind,
+    elements: Vec<(Box<dyn ToValue>, Box<dyn ToValue>)>,
+}
+
+impl EnvMap {
+    pub fn from_vec(
+        key_kind: ManifestValueKind,
+        value_kind: ManifestValueKind,
+        elements: Vec<(Box<dyn ToValue>, Box<dyn ToValue>)>,
+    ) -> Self {
+        Self {
+            key_kind,
+            value_kind,
+            elements,
+        }
+    }
+
+    pub fn new(key_kind: ManifestValueKind, value_kind: ManifestValueKind) -> Self {
+        Self {
+            key_kind,
+            value_kind,
+            elements: Vec::new(),
+        }
+    }
+
+    pub fn extend(&mut self, elements: EnvMap) {
+        self.elements.extend(elements.elements);
     }
 }
 
-impl EnvironmentEncode for EnvVec {
-    fn encode(
+impl ToValue for EnvMap {
+    fn to_value(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        let mut manifest_builder = manifest_builder;
+    ) -> (ManifestBuilder, ManifestValue) {
+        let (manifest_builder, entries) = self.elements.iter().fold(
+            (manifest_builder, Vec::new()),
+            |(manifest_builder, mut entries), (key, value)| {
+                let (manifest_builder, key_value) =
+                    key.to_value(test_engine, manifest_builder, caller);
+                let (manifest_builder, value_value) =
+                    value.to_value(test_engine, manifest_builder, caller);
+                entries.push((key_value, value_value));
+                (manifest_builder, entries)
+            },
+        );
 
-        encoder.write_value_kind(ValueKind::Array).expect("");
-        let size = self.elements.len();
-        let mut encoded = Vec::new();
-        for elem in &self.elements {
-            let (mb, encode) = elem.to_encode(test_engine, manifest_builder, caller);
-            manifest_builder = mb;
-            encoded.push(encode);
-        }
+        let value = Value::Map {
+            key_value_kind: self.key_kind,
+            value_value_kind: self.value_kind,
+            entries,
+        };
 
-        let mut encoded = encoded.iter();
-        match encoded.next() {
-            None => {
-                encoder
-                    .write_value_kind(ManifestCustomValueKind::Bucket.into())
-                    .unwrap();
-                encoder.write_size(size).expect("");
-            }
-            Some(elem) => {
-                let encode = elem.as_ref();
-                encode.encode_value_kind(encoder).expect("Error");
-                encoder.write_size(size).expect("");
-                encoder.encode_deeper_body(encode).expect("");
-            }
-        }
-
-        for elem in encoded {
-            encoder.encode_deeper_body(elem.as_ref()).expect("OK");
-        }
-        manifest_builder
+        (manifest_builder, value)
     }
 }
 
-pub struct EnvSome {
-    element: Box<dyn ToEncode>,
+// Env Option
+
+pub enum EnvOption {
+    None,
+    Some(Box<dyn ToValue>),
 }
 
-impl EnvSome {
-    pub fn new(element: Box<dyn ToEncode>) -> Self {
-        Self { element }
-    }
-}
-
-impl EnvironmentEncode for EnvSome {
-    fn encode(
+impl ToValue for EnvOption {
+    fn to_value(
         &self,
         test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
         caller: ComponentAddress,
-    ) -> ManifestBuilder {
-        let (mb, encode) = self
-            .element
-            .to_encode(test_engine, manifest_builder, caller);
+    ) -> (ManifestBuilder, ManifestValue) {
+        let (manifest_builder, value) = match self {
+            EnvOption::Some(element) => {
+                let (manifest_builder, inner_value) =
+                    element.to_value(test_engine, manifest_builder, caller);
 
-        encoder.write_value_kind(ValueKind::Enum).expect("");
-        encoder.write_discriminator(OPTION_VARIANT_SOME).expect("");
-        encoder.write_size(1).expect("");
-        encoder.encode(encode.as_ref()).expect("");
+                (
+                    manifest_builder,
+                    Value::Enum {
+                        discriminator: 1,
+                        fields: vec![inner_value],
+                    },
+                )
+            }
+            EnvOption::None => (
+                manifest_builder,
+                Value::Enum {
+                    discriminator: 0,
+                    fields: vec![],
+                },
+            ),
+        };
 
-        mb
+        (manifest_builder, value)
     }
 }
 
-impl<T: for<'a> Encode<ManifestCustomValueKind, ManifestEncoder<'a>>> EnvironmentEncode for T {
-    fn encode(
+// Other encoding types
+
+impl<T: for<'a> Encode<ManifestCustomValueKind, ManifestEncoder<'a>> + ?Sized> ToValue for T {
+    fn to_value(
         &self,
         _test_engine: &mut TestEngine,
         manifest_builder: ManifestBuilder,
-        encoder: &mut ManifestEncoder,
         _caller: ComponentAddress,
-    ) -> ManifestBuilder {
+    ) -> (ManifestBuilder, ManifestValue) {
+        let mut buf = sbor::rust::vec::Vec::new();
+        let mut encoder = ManifestEncoder::new(&mut buf, MANIFEST_SBOR_V1_MAX_DEPTH);
+        encoder
+            .write_payload_prefix(MANIFEST_SBOR_V1_PAYLOAD_PREFIX)
+            .unwrap();
+
         encoder.encode(&self).unwrap();
-        manifest_builder
+
+        let value = manifest_decode(&buf).unwrap();
+
+        (manifest_builder, value)
     }
 }

@@ -9,6 +9,7 @@ pub use crate::call_builder::*;
 pub use crate::environment::*;
 pub use crate::method_call::*;
 pub use crate::receipt_traits::*;
+pub use crate::references::*;
 pub use crate::test_engine::*;
 pub use crate::to_id::ToId;
 pub use crate::utils::*;

@@ -7,12 +7,13 @@ macro_rules! env_args {
      ($( $x:expr ),*) => {{
          use test_engine::prelude::*;
 
-         let mut temp_vec: Vec<Box<dyn EnvironmentEncode>> = vec![];
+         let mut temp_vec: Vec<Box<dyn ToValue>> = vec![];
             $(
                 temp_vec.push(Box::new($x));
             )*
         temp_vec
     }};
+
 }
 
 #[macro_export]
@@ -24,11 +25,28 @@ macro_rules! env_vec {
     ($( $x:expr ),*) => {{
         use test_engine::prelude::*;
 
+        let mut temp_vec: Vec<Box<dyn ToValue>> = vec![];
+        $(
+            temp_vec.push(Box::new($x));
+        )*
+        EnvVec::from_vec(temp_vec,ManifestCustomValueKind::Bucket.into())
+    }};
+}
+
+#[macro_export]
+macro_rules! env_tuple{
+    () => (
+        vec![]
+    );
+
+    ($( $x:expr ),*) => {{
+        use test_engine::prelude::*;
+
         let mut temp_vec: Vec<Box<dyn ToEncode>> = vec![];
         $(
             temp_vec.push(Box::new($x));
         )*
-        EnvVec::from_vec(temp_vec)
+        EnvTuple::from_vec(temp_vec)
     }};
 }
 
@@ -65,14 +83,14 @@ macro_rules! nf_ids {
 macro_rules! some {
     ($x:expr) => {{
         use test_engine::prelude::*;
-        EnvSome::new(Box::new($x))
+        EnvOption::Some(Box::new($x))
     }};
 }
 
 #[macro_export]
 macro_rules! none {
     () => {
-        None::<u64>
+        EnvOption::None
     };
 }
 
