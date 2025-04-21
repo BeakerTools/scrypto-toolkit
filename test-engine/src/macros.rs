@@ -17,26 +17,9 @@ macro_rules! env_args {
 }
 
 #[macro_export]
-macro_rules! env_vec {
-    () => (
-        vec![]
-    );
-
-    ($( $x:expr ),*) => {{
-        use test_engine::prelude::*;
-
-        let mut temp_vec: Vec<Box<dyn ToValue>> = vec![];
-        $(
-            temp_vec.push(Box::new($x));
-        )*
-        EnvVec::from_vec(temp_vec,ManifestCustomValueKind::Bucket.into())
-    }};
-}
-
-#[macro_export]
 macro_rules! env_tuple{
     () => (
-        vec![]
+        EnvTuple::new()
     );
 
     ($( $x:expr ),*) => {{
@@ -51,14 +34,35 @@ macro_rules! env_tuple{
 }
 
 #[macro_export]
-macro_rules! global_package {
-    ($name:ident, $path:expr) => {
+macro_rules! env_vec {
+    (@empty $kind:expr) => {{
+        use test_engine::prelude::*;
+        EnvVec::from_vec($kind,vec![])
+    }};
+
+    ($x0:expr $(, $x:expr)* $(,)?) => {{
         use test_engine::prelude::*;
 
-        lazy_static! {
-            static ref $name: (Vec<u8>, PackageDefinition) =
-                { PackagePublishingSource::from($path).code_and_definition() };
-        }
+        let mut temp_vec: Vec<Box<dyn ToValue>> = vec![Box::new($x0)];
+        $(
+            temp_vec.push(Box::new($x));
+        )*
+        EnvVec::from_vec(ManifestValueKind::Bool, temp_vec)
+    }};
+}
+
+#[macro_export]
+macro_rules! some {
+    ($x:expr) => {{
+        use test_engine::prelude::*;
+        EnvOption::Some(Box::new($x))
+    }};
+}
+
+#[macro_export]
+macro_rules! none {
+    () => {
+        EnvOption::None
     };
 }
 
@@ -80,17 +84,14 @@ macro_rules! nf_ids {
 }
 
 #[macro_export]
-macro_rules! some {
-    ($x:expr) => {{
+macro_rules! global_package {
+    ($name:ident, $path:expr) => {
         use test_engine::prelude::*;
-        EnvOption::Some(Box::new($x))
-    }};
-}
 
-#[macro_export]
-macro_rules! none {
-    () => {
-        EnvOption::None
+        lazy_static! {
+            static ref $name: (Vec<u8>, PackageDefinition) =
+                { PackagePublishingSource::from($path).code_and_definition() };
+        }
     };
 }
 

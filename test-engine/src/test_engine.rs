@@ -1,10 +1,10 @@
 use crate::account::Account;
 use crate::call_builder::CallBuilder;
 use crate::engine_interface::EngineInterface;
+use crate::environment::ToValue;
 use crate::method_call::{ComplexMethodCaller, SimpleMethodCaller};
-use crate::prelude::{ComponentReference, ToValue};
 use crate::receipt_traits::Outcome;
-use crate::references::{GlobalReference, ReferenceName, ResourceReference};
+use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 use crate::to_id::ToId;
 use scrypto_test::prelude::*;
 use std::collections::hash_map::Entry;

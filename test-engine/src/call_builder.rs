@@ -1,9 +1,9 @@
 use crate::account::Account;
-use crate::environment::{Fungible, NonFungible};
+use crate::environment::{Fungible, NonFungible, ToValue};
 use crate::internal_prelude::*;
 use crate::method_call::SimpleMethodCaller;
-use crate::prelude::{ComponentReference, Outcome, ToValue};
-use crate::references::{GlobalReference, ReferenceName, ResourceReference};
+use crate::receipt_traits::Outcome;
+use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
 use crate::test_engine::TestEngine;
 use crate::to_id::ToId;
 use std::collections::BTreeSet;

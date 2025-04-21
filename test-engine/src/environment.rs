@@ -1,6 +1,6 @@
 use crate::internal_prelude::*;
-use crate::prelude::{ComponentReference, TestEngine};
 use crate::references::{ReferenceName, ResourceReference};
+use crate::test_engine::TestEngine;
 use std::vec::Vec;
 
 pub trait ToValue {
@@ -12,6 +12,9 @@ pub trait ToValue {
     ) -> (ManifestBuilder, ManifestValue);
 }
 
+// ! Refs
+
+// macro to implement ToValue of env reference types
 macro_rules! env_to_value_impl {
     ($name:ident, $getter:ident) => {
         impl<N: ReferenceName + Clone> ToValue for $name<N> {
@@ -42,7 +45,7 @@ pub struct EnvAccount<N: ReferenceName + Clone>(pub N);
 env_to_value_impl!(EnvAccount, get_account);
 
 #[derive(Clone, Debug)]
-pub struct EnvComponent<N: ComponentReference + Clone>(pub N);
+pub struct EnvComponent<N: ReferenceName + Clone>(pub N);
 env_to_value_impl!(EnvComponent, get_component);
 
 pub struct EnvPackage<N: ReferenceName + Clone>(pub N);
@@ -81,7 +84,8 @@ impl<N: ReferenceName + Clone> ToValue for Environment<N> {
     }
 }
 
-// Fungible
+// ! Fungible
+
 #[derive(Clone, Debug)]
 pub enum Fungible<R: ResourceReference + Clone> {
     FromAccount(R, Decimal),
@@ -119,13 +123,14 @@ impl<R: ResourceReference + Clone> Fungible<R> {
                 let resource_address = resource.address(test_engine);
                 let amount = *amount;
 
-                let (manifest_builder, bucket) = manifest_builder.add_instruction_advanced(
+                let (manifest_builder, symbols) = manifest_builder.add_instruction_advanced(
                     InstructionV1::TakeFromWorktop(TakeFromWorktop {
                         resource_address,
                         amount,
                     }),
                 );
-                (manifest_builder, bucket.new_bucket.unwrap())
+
+                (manifest_builder, symbols.new_bucket.unwrap())
             }
             Fungible::AllFromAccount(resource) => {
                 let amount_owned = test_engine.current_balance(resource.clone());
@@ -174,7 +179,7 @@ impl<R: ResourceReference + Clone> ToValue for Fungible<R> {
     }
 }
 
-// Non Fungible
+// ! Non Fungible
 
 pub enum NonFungible<R: ResourceReference + Clone> {
     FromAccount(R, Vec<NonFungibleLocalId>),
@@ -265,7 +270,7 @@ impl<R: ResourceReference + Clone> ToValue for NonFungible<R> {
     }
 }
 
-// Proofs
+// ! Proofs
 
 pub enum ProofOf<R: ResourceReference + Clone> {
     FungibleFromAccount(R, Decimal),
@@ -342,7 +347,7 @@ impl<R: ResourceReference + Clone> ToValue for ProofOf<R> {
     }
 }
 
-// Env Vec
+// ! Env Vec
 
 pub struct EnvVec {
     value_kind: ManifestValueKind,
@@ -350,17 +355,17 @@ pub struct EnvVec {
 }
 
 impl EnvVec {
-    pub fn from_vec(elements: Vec<Box<dyn ToValue>>, value_kind: ManifestValueKind) -> Self {
+    pub fn from_vec(value_kind: ManifestValueKind, elements: Vec<Box<dyn ToValue>>) -> Self {
         Self {
-            elements,
             value_kind,
+            elements,
         }
     }
 
     pub fn new(value_kind: ManifestValueKind) -> Self {
         Self {
-            elements: Vec::new(),
             value_kind,
+            elements: Vec::new(),
         }
     }
 
@@ -397,13 +402,15 @@ impl ToValue for EnvVec {
             |(manifest_builder, mut vec), element| {
                 let (manifest_builder, element_value) =
                     element.to_value(test_engine, manifest_builder, caller);
+
                 vec.push(element_value);
+
                 (manifest_builder, vec)
             },
         );
 
-        let value_kind = if let Some(first_value) = vec.first() {
-            match first_value {
+        let value_kind = if let Some(first) = vec.first() {
+            match first {
                 Value::Bool { .. } => ValueKind::Bool,
                 Value::I8 { .. } => ValueKind::I8,
                 Value::I16 { .. } => ValueKind::I16,
@@ -435,7 +442,7 @@ impl ToValue for EnvVec {
     }
 }
 
-// Env Tuple
+// ! Env Tuple
 
 pub struct EnvTuple {
     elements: Vec<Box<dyn ToValue>>,
@@ -451,27 +458,44 @@ impl EnvTuple {
             elements: Vec::new(),
         }
     }
+}
 
-    pub fn extend(&mut self, elements: EnvVec) {
-        self.elements.extend(elements.elements);
+impl ToValue for EnvTuple {
+    fn to_value<'a>(
+        &self,
+        test_engine: &mut TestEngine,
+        manifest_builder: ManifestBuilder,
+        caller: ComponentAddress,
+    ) -> (ManifestBuilder, ManifestValue) {
+        let (manifest_builder, tuple) = self.elements.iter().fold(
+            (manifest_builder, Vec::new()),
+            |(manifest_builder, mut tuple), element| {
+                let (manifest_builder, element_value) =
+                    element.to_value(test_engine, manifest_builder, caller);
+                tuple.push(element_value);
+                (manifest_builder, tuple)
+            },
+        );
+
+        let value = Value::Tuple { fields: tuple };
+
+        (manifest_builder, value)
     }
 }
 
-// Env map
-
-// Env Tuple
+// ! Env map
 
 pub struct EnvMap {
     key_kind: ManifestValueKind,
     value_kind: ManifestValueKind,
-    elements: Vec<(Box<dyn ToValue>, Box<dyn ToValue>)>,
+    elements: IndexMap<Box<dyn ToValue>, Box<dyn ToValue>>,
 }
 
 impl EnvMap {
     pub fn from_vec(
         key_kind: ManifestValueKind,
         value_kind: ManifestValueKind,
-        elements: Vec<(Box<dyn ToValue>, Box<dyn ToValue>)>,
+        elements: IndexMap<Box<dyn ToValue>, Box<dyn ToValue>>,
     ) -> Self {
         Self {
             key_kind,
@@ -484,12 +508,8 @@ impl EnvMap {
         Self {
             key_kind,
             value_kind,
-            elements: Vec::new(),
+            elements: IndexMap::new(),
         }
-    }
-
-    pub fn extend(&mut self, elements: EnvMap) {
-        self.elements.extend(elements.elements);
     }
 }
 
@@ -522,7 +542,7 @@ impl ToValue for EnvMap {
     }
 }
 
-// Env Option
+// ! Env Option
 
 pub enum EnvOption {
     None,

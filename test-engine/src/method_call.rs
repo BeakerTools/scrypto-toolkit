@@ -1,6 +1,6 @@
 use crate::call_builder::CallBuilder;
+use crate::environment::ToValue;
 use crate::internal_prelude::*;
-use crate::prelude::ToValue;
 use crate::references::{GlobalReference, ResourceReference};
 
 pub trait SimpleMethodCaller {
@@ -49,19 +49,6 @@ pub trait ComplexMethodCaller {
     /// * `args`: environment arguments to call the method.
     fn call(&mut self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> CallBuilder;
 
-    /// Returns a call builder with an initial method call with a given admin badge.
-    ///
-    /// # Arguments
-    /// * `method_name`: name of the method.
-    /// * `admin_badge`: reference name or address of the resource to use as an admin badge.
-    /// * `args`: environment arguments to call the method.
-    fn call_with_badge<R: ResourceReference>(
-        &mut self,
-        method_name: &str,
-        admin_badge: R,
-        args: Vec<Box<dyn ToValue>>,
-    ) -> CallBuilder;
-
     /// Returns a call builder with an initial method call to a given entity.
     ///
     /// # Arguments
@@ -72,6 +59,19 @@ pub trait ComplexMethodCaller {
         &mut self,
         global_address: G,
         method_name: &str,
+        args: Vec<Box<dyn ToValue>>,
+    ) -> CallBuilder;
+
+    /// Returns a call builder with an initial method call with a given admin badge.
+    ///
+    /// # Arguments
+    /// * `method_name`: name of the method.
+    /// * `admin_badge`: reference name or address of the resource to use as an admin badge.
+    /// * `args`: environment arguments to call the method.
+    fn call_with_badge<R: ResourceReference>(
+        &mut self,
+        method_name: &str,
+        admin_badge: R,
         args: Vec<Box<dyn ToValue>>,
     ) -> CallBuilder;
 
