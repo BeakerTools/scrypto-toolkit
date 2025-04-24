@@ -14,6 +14,6 @@ pub use crate::test_engine::*;
 pub use crate::to_id::ToId;
 pub use crate::utils::*;
 pub use crate::{
-    env_args, env_vec, global_package, global_package_advanced, global_package_from_binary, nf_ids,
-    none, some,
+    env_args, env_map, env_tuple, env_vec, global_package, global_package_advanced,
+    global_package_from_binary, nf_ids, none, some,
 };

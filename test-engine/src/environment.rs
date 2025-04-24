@@ -410,25 +410,7 @@ impl ToValue for EnvVec {
         );
 
         let value_kind = if let Some(first) = vec.first() {
-            match first {
-                Value::Bool { .. } => ValueKind::Bool,
-                Value::I8 { .. } => ValueKind::I8,
-                Value::I16 { .. } => ValueKind::I16,
-                Value::I32 { .. } => ValueKind::I32,
-                Value::I64 { .. } => ValueKind::I64,
-                Value::I128 { .. } => ValueKind::I128,
-                Value::U8 { .. } => ValueKind::U8,
-                Value::U16 { .. } => ValueKind::U16,
-                Value::U32 { .. } => ValueKind::U32,
-                Value::U64 { .. } => ValueKind::U64,
-                Value::U128 { .. } => ValueKind::U128,
-                Value::String { .. } => ValueKind::String,
-                Value::Enum { .. } => ValueKind::Enum,
-                Value::Array { .. } => ValueKind::Array,
-                Value::Tuple { .. } => ValueKind::Tuple,
-                Value::Map { .. } => ValueKind::Map,
-                Value::Custom { value } => ValueKind::Custom(value.get_custom_value_kind()),
-            }
+            get_value_kind(first)
         } else {
             self.value_kind
         };
@@ -488,14 +470,14 @@ impl ToValue for EnvTuple {
 pub struct EnvMap {
     key_kind: ManifestValueKind,
     value_kind: ManifestValueKind,
-    elements: IndexMap<Box<dyn ToValue>, Box<dyn ToValue>>,
+    elements: Vec<(Box<dyn ToValue>, Box<dyn ToValue>)>,
 }
 
 impl EnvMap {
     pub fn from_vec(
         key_kind: ManifestValueKind,
         value_kind: ManifestValueKind,
-        elements: IndexMap<Box<dyn ToValue>, Box<dyn ToValue>>,
+        elements: Vec<(Box<dyn ToValue>, Box<dyn ToValue>)>,
     ) -> Self {
         Self {
             key_kind,
@@ -508,7 +490,7 @@ impl EnvMap {
         Self {
             key_kind,
             value_kind,
-            elements: IndexMap::new(),
+            elements: Vec::new(),
         }
     }
 }
@@ -532,9 +514,15 @@ impl ToValue for EnvMap {
             },
         );
 
+        let (key_kind, value_kind) = if let Some(first) = entries.first() {
+            (get_value_kind(&first.0), get_value_kind(&first.1))
+        } else {
+            (self.key_kind, self.value_kind)
+        };
+
         let value = Value::Map {
-            key_value_kind: self.key_kind,
-            value_value_kind: self.value_kind,
+            key_value_kind: key_kind,
+            value_value_kind: value_kind,
             entries,
         };
 
@@ -602,5 +590,27 @@ impl<T: for<'a> Encode<ManifestCustomValueKind, ManifestEncoder<'a>> + ?Sized> T
         let value = manifest_decode(&buf).unwrap();
 
         (manifest_builder, value)
+    }
+}
+
+fn get_value_kind(value: &ManifestValue) -> ManifestValueKind {
+    match value {
+        Value::Bool { .. } => ValueKind::Bool,
+        Value::I8 { .. } => ValueKind::I8,
+        Value::I16 { .. } => ValueKind::I16,
+        Value::I32 { .. } => ValueKind::I32,
+        Value::I64 { .. } => ValueKind::I64,
+        Value::I128 { .. } => ValueKind::I128,
+        Value::U8 { .. } => ValueKind::U8,
+        Value::U16 { .. } => ValueKind::U16,
+        Value::U32 { .. } => ValueKind::U32,
+        Value::U64 { .. } => ValueKind::U64,
+        Value::U128 { .. } => ValueKind::U128,
+        Value::String { .. } => ValueKind::String,
+        Value::Enum { .. } => ValueKind::Enum,
+        Value::Array { .. } => ValueKind::Array,
+        Value::Tuple { .. } => ValueKind::Tuple,
+        Value::Map { .. } => ValueKind::Map,
+        Value::Custom { value } => ValueKind::Custom(value.get_custom_value_kind()),
     }
 }

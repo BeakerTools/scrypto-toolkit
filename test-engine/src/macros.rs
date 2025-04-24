@@ -25,7 +25,7 @@ macro_rules! env_tuple{
     ($( $x:expr ),*) => {{
         use test_engine::prelude::*;
 
-        let mut temp_vec: Vec<Box<dyn ToEncode>> = vec![];
+        let mut temp_vec: Vec<Box<dyn ToValue>> = vec![];
         $(
             temp_vec.push(Box::new($x));
         )*
@@ -37,6 +37,7 @@ macro_rules! env_tuple{
 macro_rules! env_vec {
     (@empty $kind:expr) => {{
         use test_engine::prelude::*;
+
         EnvVec::from_vec($kind,vec![])
     }};
 
@@ -55,6 +56,7 @@ macro_rules! env_vec {
 macro_rules! some {
     ($x:expr) => {{
         use test_engine::prelude::*;
+
         EnvOption::Some(Box::new($x))
     }};
 }
@@ -64,6 +66,25 @@ macro_rules! none {
     () => {
         EnvOption::None
     };
+}
+
+#[macro_export]
+macro_rules! env_map {
+    (@empty $key_kind:expr , $value_kind:expr) => {{
+        use test_engine::prelude::*;
+
+        EnvMap::new($key_kind, $value_kind)
+    }};
+
+    ($($key:expr => $value:expr),*) => {{
+        use test_engine::prelude::*;
+
+        let mut temp_vec:Vec<(Box<dyn ToValue>, Box<dyn ToValue>)> = vec![];
+        $(
+            temp_vec.push((Box::new($key), Box::new($value)));
+        )*
+        EnvMap::from_vec(ManifestValueKind::Bool, ManifestValueKind::Bool, temp_vec)
+    }};
 }
 
 #[macro_export]
