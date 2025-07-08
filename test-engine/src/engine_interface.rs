@@ -21,11 +21,13 @@ impl EngineInterface {
         }
     }
 
-    pub fn new_with_custom_genesis(_genesis: BabylonSettings) -> Self {
+    pub fn new_with_custom_genesis(genesis: BabylonSettings) -> Self {
         let test_runner_builder = LedgerSimulatorBuilder::new()
-            // .with_custom_genesis(genesis)
-            //  .with_custom_protocol(|builder| builder.only_babylon())
-            //.without_kernel_trace()
+            .with_custom_protocol(|builder| {
+                builder
+                    .configure_babylon(|_| genesis)
+                    .from_bootstrap_to_latest()
+            })
             .build();
         Self {
             simulator: test_runner_builder,
