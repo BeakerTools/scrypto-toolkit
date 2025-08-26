@@ -1,7 +1,7 @@
 use crate::account::Account;
 use crate::call_builder::CallBuilder;
 use crate::engine_interface::EngineInterface;
-use crate::environment::EnvironmentEncode;
+use crate::environment::ToValue;
 use crate::method_call::{ComplexMethodCaller, SimpleMethodCaller};
 use crate::receipt_traits::Outcome;
 use crate::references::{ComponentReference, GlobalReference, ReferenceName, ResourceReference};
@@ -158,7 +158,7 @@ impl TestEngine {
         component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt {
         self.create_component(
             component_name,
@@ -183,7 +183,7 @@ impl TestEngine {
         blueprint_name: &str,
         instantiation_function: &str,
         badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt {
         self.create_component(
             component_name,
@@ -207,7 +207,7 @@ impl TestEngine {
         component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
         callback: impl FnOnce(CallBuilder) -> CallBuilder,
     ) -> TransactionReceipt {
         self.create_component(
@@ -612,11 +612,11 @@ impl TestEngine {
         resource: R1,
         id: T,
         field_name: &str,
-        mut data: Vec<Box<dyn EnvironmentEncode>>,
+        mut data: Vec<Box<dyn ToValue>>,
         badge: R2,
     ) -> TransactionReceipt {
         let resource = resource.address(self);
-        let mut args: Vec<Box<dyn EnvironmentEncode>> =
+        let mut args: Vec<Box<dyn ToValue>> =
             vec![Box::new(id.to_id()), Box::new(field_name.to_string())];
         args.append(&mut data);
         CallBuilder::new(self)
@@ -821,7 +821,7 @@ impl TestEngine {
         component_name: N,
         blueprint_name: &str,
         instantiation_function: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
         callback: impl FnOnce(CallBuilder) -> CallBuilder,
     ) -> TransactionReceipt {
         // let caller = self.current_account().clone();
@@ -940,11 +940,7 @@ impl Default for TestEngine {
 }
 
 impl<'a> SimpleMethodCaller for &'a mut TestEngine {
-    fn call_method(
-        self,
-        method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
-    ) -> TransactionReceipt {
+    fn call_method(self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> TransactionReceipt {
         let component = *self.current_component();
         self.call_method_from(component, method_name, args)
     }
@@ -953,7 +949,7 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         self,
         global_address: G,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt {
         self.call_from(global_address, method_name, args).execute()
     }
@@ -962,7 +958,7 @@ impl<'a> SimpleMethodCaller for &'a mut TestEngine {
         self,
         method_name: &str,
         admin_badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> TransactionReceipt {
         self.call(method_name, args)
             .with_badge(admin_badge)
@@ -975,7 +971,7 @@ impl ComplexMethodCaller for TestEngine {
         CallBuilder::new(self)
     }
 
-    fn call(&mut self, method_name: &str, args: Vec<Box<dyn EnvironmentEncode>>) -> CallBuilder {
+    fn call(&mut self, method_name: &str, args: Vec<Box<dyn ToValue>>) -> CallBuilder {
         let component = *self.current_component();
         self.call_from(component, method_name, args)
     }
@@ -983,7 +979,7 @@ impl ComplexMethodCaller for TestEngine {
         &mut self,
         method_name: &str,
         admin_badge: R,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> CallBuilder {
         let component = *self.current_component();
         self.call_from(component, method_name, args)
@@ -994,7 +990,7 @@ impl ComplexMethodCaller for TestEngine {
         &mut self,
         global_address: G,
         method_name: &str,
-        args: Vec<Box<dyn EnvironmentEncode>>,
+        args: Vec<Box<dyn ToValue>>,
     ) -> CallBuilder {
         let address = global_address.address(self);
         CallBuilder::new(self).call_method_internal(address, method_name, args)

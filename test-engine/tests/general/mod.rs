@@ -32,16 +32,18 @@ fn test_transfer() {
     test_engine
         .transfer("Recipient", "Test token", dec!(10))
         .assert_is_success();
+
     assert_eq!(test_engine.balance_of("Recipient", "Test token"), dec!(10));
 }
 
 #[test]
 fn test_bug() {
     let mut simulator = LedgerSimulatorBuilder::new()
-        .with_custom_genesis(BabylonSettings::test_default(
-            // Epoch::of(1),
-            // BabylonSettings::default_consensus_manager_config(),
-        ))
+        // .with_custom_genesis(BabylonSettings::test_default(
+        // Epoch::of(1),
+        // BabylonSettings::default_consensus_manager_config(),
+        // ))
+        .with_custom_protocol(|builder| builder.only_babylon())
         .without_kernel_trace()
         .build();
 
